@@ -1,0 +1,678 @@
+{% extends 'asistente_compras/base.html' %}
+{% load custom_filters %}
+
+{% block title %}{{ shopping_list.name }} - Detalles{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <!-- Encabezado de la lista -->
+        <div class="list-header mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="list-title">
+                        <i class="fas fa-list me-2"></i>
+                        {{ shopping_list.name }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-calendar me-1"></i>
+                        Creada: {{ shopping_list.created_at|date:"d/m/Y H:i" }}
+                        {% if shopping_list.updated_at != shopping_list.created_at %}
+                            | Actualizada: {{ shopping_list.updated_at|date:"d/m/Y H:i" }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="list-stats text-end">
+                    <div class="stat-item">
+                        <span class="stat-label">Total de ítems:</span>
+                        <span class="stat-value">{{ total_items }}</span>
+                    </div>
+                    {% if total_estimated_cost > 0 %}
+                        <div class="stat-item">
+                            <span class="stat-label">Costo estimado:</span>
+                            <span class="stat-value text-success">${{ total_estimated_cost|floatformat:0 }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de ítems -->
+        <div class="items-list">
+            {% if items %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Ítem Solicitado</th>
+                                <th scope="col">Cantidad</th>
+                                <th scope="col">Sugerencia de IA</th>
+                                <th scope="col">Precio</th>
+                                <th scope="col">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                                <tr class="item-row">
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <div class="item-name">
+                                            <strong>{{ item.item_name_raw }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ item.quantity_requested }}</span>
+                                    </td>
+                                    <td>
+                                        {% if item.suggested_product %}
+                                            <div class="ai-suggestion">
+                                                <div class="suggestion-product">
+                                                    <strong>{{ item.suggested_product.name }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ item.suggested_product.brand }}</small>
+                                                </div>
+                                                <div class="suggestion-quality">
+                                                    <span class="badge bg-{{ item.suggested_product.quality_category|quality_badge_color }}">
+                                                        {{ item.suggested_product.get_quality_category_display }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="no-suggestion">
+                                                <span class="text-muted">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    Procesando...
+                                                </span>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.suggested_product %}
+                                            <div class="price-info">
+                                                <span class="price">${{ item.suggested_product.price|floatformat:0 }}</span>
+                                                <br>
+                                                <small class="text-muted">
+                                                    Total: ${{ item.get_estimated_cost|floatformat:0 }}
+                                                </small>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            {% if item.ai_suggestions_json %}
+                                                <button type="button" 
+                                                        class="btn btn-outline-info btn-sm"
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#suggestionsModal{{ item.id }}">
+                                                    <i class="fas fa-eye me-1"></i>
+                                                    Ver Opciones
+                                                </button>
+                                            {% endif %}
+                                            <button type="button" 
+                                                    class="btn btn-outline-secondary btn-sm"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#editItemModal{{ item.id }}">
+                                                <i class="fas fa-edit me-1"></i>
+                                                Editar
+                                            </button>
+                                            <button type="button" 
+                                                    class="btn btn-outline-danger btn-sm delete-item-btn"
+                                                    data-list-id="{{ shopping_list.id }}" 
+                                                    data-item-id="{{ item.id }}"
+                                                    data-item-name="{{ item.item_name_raw }}"
+                                                    data-url="{% url 'asistente_compras:delete_shopping_list_item' shopping_list.id item.id %}">
+                                                <i class="fas fa-trash-alt me-1"></i>
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="no-items text-center py-5">
+                    <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No hay ítems en esta lista</h4>
+                    <p class="text-muted">Parece que la lista está vacía.</p>
+                    <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                        <i class="fas fa-plus me-1"></i>
+                        Agregar Nuevo Ítem
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Botones de acción -->
+        <div class="list-actions mt-4">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'asistente_compras:home' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Volver al Inicio
+                </a>
+                <div>
+                    <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                        <i class="fas fa-plus me-1"></i>
+                        Agregar Ítem
+                    </button>
+                    <a href="{% url 'asistente_compras:create_shopping_list' %}" class="btn btn-primary me-2">
+                        <i class="fas fa-plus me-1"></i>
+                        Crear Nueva Lista
+                    </a>
+                    <a href="{% url 'asistente_compras:export_list_to_pdf' shopping_list.id %}" class="btn btn-success">
+                        <i class="fas fa-download me-1"></i>
+                        Exportar Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modales para mostrar sugerencias de IA -->
+{% for item in items %}
+    {% if item.ai_suggestions_json %}
+        <div class="modal fade" id="suggestionsModal{{ item.id }}" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-robot me-2"></i>
+                            Sugerencias de IA para: {{ item.item_name_raw }}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="ai-suggestions-list">
+                            {% with suggestions=item.get_ai_suggestions %}
+                                {% for suggestion in suggestions.suggestions %}
+                                    <div class="suggestion-card mb-3 p-3 border rounded">
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <h6 class="suggestion-title">{{ suggestion.product_name }}</h6>
+                                                <p class="suggestion-description text-muted mb-2">
+                                                    {{ suggestion.description }}
+                                                </p>
+                                                <div class="suggestion-details">
+                                                    <span class="badge bg-secondary me-2">{{ suggestion.brand }}</span>
+                                                    <span class="badge bg-{{ suggestion.quality|quality_badge_color }}">
+                                                        {{ suggestion.quality|title }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 text-end">
+                                                <div class="suggestion-price">
+                                                    <span class="price-large">${{ suggestion.price|floatformat:0 }}</span>
+                                                    <br>
+                                                    <small class="text-muted">Stock: {{ suggestion.stock }} unidades</small>
+                                                </div>
+                                                <form action="{% url 'asistente_compras:select_suggestion_for_item' shopping_list.id item.id %}" method="post">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="suggestion_index" value="{{ forloop.counter0 }}">
+                                                    <button type="submit" class="btn btn-primary btn-sm mt-2">
+                                                        <i class="fas fa-check me-1"></i>
+                                                        Seleccionar
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Modal para editar ítem -->
+    <div class="modal fade" id="editItemModal{{ item.id }}" tabindex="-1" 
+         data-list-id="{{ shopping_list.id }}" data-item-id="{{ item.id }}">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>
+                        Editar Ítem: {{ item.item_name_raw }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="itemName{{ item.id }}" class="form-label">Nombre del ítem</label>
+                            <input type="text" class="form-control" id="itemName{{ item.id }}" 
+                                   value="{{ item.item_name_raw }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="itemQuantity{{ item.id }}" class="form-label">Cantidad</label>
+                            <input type="number" class="form-control" id="itemQuantity{{ item.id }}" 
+                                   value="{{ item.quantity_requested }}" min="1">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary save-item-btn" 
+                            data-list-id="{{ shopping_list.id }}" data-item-id="{{ item.id }}"
+                            data-url="{% url 'asistente_compras:edit_shopping_list_item' shopping_list.id item.id %}">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+<!-- Modal para agregar ítem -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>
+                    Agregar Nuevo Ítem a {{ shopping_list.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Pestañas para diferentes métodos de agregar -->
+                <ul class="nav nav-tabs mb-3" id="addItemTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="search-tab" data-bs-toggle="tab" data-bs-target="#search-tab-pane" type="button" role="tab">
+                            <i class="fas fa-search me-1"></i>
+                            Buscar en Inventario
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual-tab-pane" type="button" role="tab">
+                            <i class="fas fa-edit me-1"></i>
+                            Agregar Manualmente
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="addItemTabContent">
+                    <!-- Pestaña de búsqueda en inventario -->
+                    <div class="tab-pane fade show active" id="search-tab-pane" role="tabpanel">
+                        <div class="mb-3">
+                            <label for="productSearch" class="form-label">Buscar productos en el inventario</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="productSearch" 
+                                       placeholder="Escribe el nombre del producto...">
+                                <button class="btn btn-outline-secondary" type="button" id="searchBtn">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Resultados de búsqueda -->
+                        <div id="searchResults" class="mb-3" style="display: none;">
+                            <h6>Productos encontrados:</h6>
+                            <div id="productsList" class="list-group">
+                                <!-- Los productos se cargarán aquí dinámicamente -->
+                            </div>
+                        </div>
+
+                        <!-- Producto seleccionado -->
+                        <div id="selectedProduct" class="mb-3" style="display: none;">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Producto seleccionado:</h6>
+                                    <div id="selectedProductInfo"></div>
+                                    <div class="mt-3">
+                                        <label for="selectedQuantity" class="form-label">Cantidad:</label>
+                                        <input type="number" class="form-control" id="selectedQuantity" value="1" min="1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pestaña de agregar manualmente -->
+                    <div class="tab-pane fade" id="manual-tab-pane" role="tabpanel">
+                        <div class="mb-3">
+                            <label for="newItemName" class="form-label">Nombre del ítem</label>
+                            <input type="text" class="form-control" id="newItemName" 
+                                   placeholder="Ej: 3 cuadernos, 1 lápiz grafito HB">
+                        </div>
+                        <div class="mb-3">
+                            <label for="newQuantity" class="form-label">Cantidad</label>
+                            <input type="number" class="form-control" id="newQuantity" 
+                                   value="1" min="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveNewItemBtn" 
+                        data-list-id="{{ shopping_list.id }}"
+                        data-url="{% url 'asistente_compras:add_shopping_list_item' shopping_list.id %}">
+                    Agregar Ítem
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Función para obtener el token CSRF de las cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+    let selectedProduct = null;
+
+    // Funcionalidad de búsqueda de productos
+    const searchBtn = document.getElementById('searchBtn');
+    const productSearch = document.getElementById('productSearch');
+    const searchResults = document.getElementById('searchResults');
+    const productsList = document.getElementById('productsList');
+    const selectedProductDiv = document.getElementById('selectedProduct');
+    const selectedProductInfo = document.getElementById('selectedProductInfo');
+
+    // Buscar productos al hacer clic en el botón de búsqueda
+    if (searchBtn) {
+        searchBtn.addEventListener('click', function() {
+            searchProducts();
+        });
+    }
+
+    // Buscar productos al presionar Enter en el campo de búsqueda
+    if (productSearch) {
+        productSearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProducts();
+            }
+        });
+    }
+
+    function searchProducts() {
+        const searchTerm = productSearch.value.trim();
+        if (!searchTerm) {
+            alert('Por favor, ingresa un término de búsqueda.');
+            return;
+        }
+
+        fetch('{% url "asistente_compras:search_products" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                search_term: searchTerm
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displaySearchResults(data.products);
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al buscar productos.');
+        });
+    }
+
+    function displaySearchResults(products) {
+        if (products.length === 0) {
+            productsList.innerHTML = '<div class="text-center text-muted p-3">No se encontraron productos.</div>';
+        } else {
+            productsList.innerHTML = '';
+            products.forEach(product => {
+                const productItem = document.createElement('div');
+                productItem.className = 'list-group-item list-group-item-action';
+                productItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">${product.name}</h6>
+                            <p class="mb-1 text-muted">${product.description}</p>
+                            <small class="text-muted">Marca: ${product.brand} | Categoría: ${product.quality_category}</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold">$${Math.round(product.price).toLocaleString()}</div>
+                            <small class="text-muted">Stock: ${product.stock}</small>
+                            <br>
+                            <button class="btn btn-sm btn-primary mt-1" onclick="selectProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})">
+                                Seleccionar
+                            </button>
+                        </div>
+                    </div>
+                `;
+                productsList.appendChild(productItem);
+            });
+        }
+        searchResults.style.display = 'block';
+    }
+
+    // Función global para seleccionar un producto
+    window.selectProduct = function(product) {
+        selectedProduct = product;
+        selectedProductInfo.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">${product.name}</h6>
+                    <p class="mb-1 text-muted">${product.description}</p>
+                    <small class="text-muted">Marca: ${product.brand} | Categoría: ${product.quality_category}</small>
+                </div>
+                <div class="text-end">
+                    <div class="fw-bold">$${Math.round(product.price).toLocaleString()}</div>
+                    <small class="text-muted">Stock: ${product.stock}</small>
+                </div>
+            </div>
+        `;
+        selectedProductDiv.style.display = 'block';
+        searchResults.style.display = 'none';
+    };
+
+    // Lógica para editar ítem existente
+    document.querySelectorAll('.save-item-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const listId = this.dataset.listId;
+            const itemId = this.dataset.itemId;
+            const modalId = `editItemModal${itemId}`;
+            const modalElement = document.getElementById(modalId);
+
+            const itemNameInput = modalElement.querySelector(`#itemName${itemId}`);
+            const itemQuantityInput = modalElement.querySelector(`#itemQuantity${itemId}`);
+
+            const new_item_name = itemNameInput.value.trim();
+            const new_quantity = parseInt(itemQuantityInput.value);
+
+            if (!new_item_name || isNaN(new_quantity) || new_quantity < 1) {
+                alert('Por favor, ingresa un nombre y una cantidad válida (mayor o igual a 1).');
+                return;
+            }
+
+            const url = this.dataset.url;
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    item_name: new_item_name,
+                    quantity: new_quantity
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    location.reload();
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocurrió un error al intentar guardar los cambios.');
+            });
+        });
+    });
+
+    // Lógica para eliminar ítem
+    document.querySelectorAll('.delete-item-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const listId = this.dataset.listId;
+            const itemId = this.dataset.itemId;
+            const itemName = this.dataset.itemName;
+            const url = this.dataset.url;
+
+            if (confirm(`¿Estás seguro de que quieres eliminar el ítem "${itemName}"?`)) {
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al eliminar:', error);
+                    alert('Ocurrió un error al intentar eliminar el ítem.');
+                });
+            }
+        });
+    });
+
+    // Lógica para agregar nuevo ítem (actualizada)
+    const saveNewItemBtn = document.getElementById('saveNewItemBtn');
+    if (saveNewItemBtn) {
+        saveNewItemBtn.addEventListener('click', function() {
+            const listId = this.dataset.listId;
+            const url = this.dataset.url;
+            
+            // Verificar qué pestaña está activa
+            const activeTab = document.querySelector('#addItemTabs .nav-link.active');
+            let item_name, quantity;
+
+            if (activeTab.id === 'search-tab') {
+                // Pestaña de búsqueda en inventario
+                if (!selectedProduct) {
+                    alert('Por favor, selecciona un producto del inventario.');
+                    return;
+                }
+                item_name = selectedProduct.name;
+                quantity = parseInt(document.getElementById('selectedQuantity').value);
+            } else {
+                // Pestaña de agregar manualmente
+                const newItemNameInput = document.getElementById('newItemName');
+                const newQuantityInput = document.getElementById('newQuantity');
+                item_name = newItemNameInput.value.trim();
+                quantity = parseInt(newQuantityInput.value);
+            }
+
+            if (!item_name || isNaN(quantity) || quantity < 1) {
+                alert('Por favor, ingresa un nombre y una cantidad válida (mayor o igual a 1).');
+                return;
+            }
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    item_name: item_name,
+                    quantity: quantity
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    // Cierra el modal
+                    const modalElement = document.getElementById('addItemModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    // Limpia el formulario y resetea el estado
+                    resetAddItemModal();
+                    location.reload();
+    } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error al agregar:', error);
+                alert('Ocurrió un error al intentar agregar el ítem.');
+            });
+        });
+    }
+
+    // Función para resetear el modal de agregar ítem
+    function resetAddItemModal() {
+        if (productSearch) productSearch.value = '';
+        if (document.getElementById('newItemName')) document.getElementById('newItemName').value = '';
+        if (document.getElementById('newQuantity')) document.getElementById('newQuantity').value = '1';
+        if (document.getElementById('selectedQuantity')) document.getElementById('selectedQuantity').value = '1';
+        
+        searchResults.style.display = 'none';
+        selectedProductDiv.style.display = 'none';
+        selectedProduct = null;
+        
+        // Cambiar a la primera pestaña
+        const firstTab = document.getElementById('search-tab');
+        const firstTabPane = document.getElementById('search-tab-pane');
+        document.querySelectorAll('#addItemTabs .nav-link').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('#addItemTabContent .tab-pane').forEach(pane => pane.classList.remove('show', 'active'));
+        firstTab.classList.add('active');
+        firstTabPane.classList.add('show', 'active');
+    }
+
+    // Resetear modal cuando se cierra
+    const addItemModal = document.getElementById('addItemModal');
+    if (addItemModal) {
+        addItemModal.addEventListener('hidden.bs.modal', function() {
+            resetAddItemModal();
+        });
+    }
+});
+</script>
+{% endblock %} 

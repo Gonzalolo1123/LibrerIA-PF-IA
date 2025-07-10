@@ -1,0 +1,141 @@
+{% extends 'asistente_compras/base.html' %}
+
+{% block title %}Inicio - Asistente de Compras de Librería con IA{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Sección de bienvenida -->
+        <div class="welcome-section text-center mb-5">
+            <div class="welcome-icon mb-4">
+                <i class="fas fa-robot fa-4x text-primary"></i>
+            </div>
+            <h2 class="welcome-title">Bienvenido al Asistente de Compras de Librería con IA</h2>
+            <p class="welcome-description lead">
+                Nuestra inteligencia artificial te ayudará a encontrar los mejores productos 
+                para tu lista de útiles escolares, con sugerencias personalizadas según tu presupuesto.
+            </p>
+        </div>
+
+        <!-- Botón para crear nueva lista -->
+        <div class="text-center mb-5">
+            <a href="{% url 'asistente_compras:create_shopping_list' %}" class="btn btn-primary btn-lg me-3">
+                <i class="fas fa-plus-circle me-2"></i>
+                Crear Nueva Lista
+            </a>
+            <a href="{% url 'asistente_compras:product_list' %}" class="btn btn-success btn-lg">
+                <i class="fas fa-boxes me-2"></i>
+                Ver Inventario
+            </a>
+        </div>
+
+        <!-- Sección de listas existentes -->
+        {% if user.is_authenticated and user_lists %}
+            <div class="existing-lists-section">
+                <h3 class="section-title">
+                    <i class="fas fa-list me-2"></i>
+                    Tus Listas de Compras
+                </h3>
+                
+                <div class="row">
+                    {% for shopping_list in user_lists %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card list-card">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ shopping_list.name }}</h5>
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            Creada: {{ shopping_list.created_at|date:"d/m/Y H:i" }}
+                                        </small>
+                                    </p>
+                                    <p class="card-text">
+                                        <i class="fas fa-shopping-cart me-1"></i>
+                                        {{ shopping_list.get_total_items }} ítems
+                                    </p>
+                                    {% if shopping_list.get_total_estimated_cost > 0 %}
+                                        <p class="card-text">
+                                            <i class="fas fa-dollar-sign me-1"></i>
+                                            Total estimado: ${{ shopping_list.get_total_estimated_cost|floatformat:0 }}
+                                        </p>
+                                    {% endif %}
+                                    <a href="{% url 'asistente_compras:list_detail' shopping_list.id %}" 
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-eye me-1"></i>
+                                        Ver Detalles
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% elif user.is_authenticated %}
+            <div class="no-lists-section text-center">
+                <div class="no-lists-icon mb-3">
+                    <i class="fas fa-clipboard-list fa-3x text-muted"></i>
+                </div>
+                <h4 class="text-muted">No tienes listas de compras aún</h4>
+                <p class="text-muted">¡Crea tu primera lista y descubre cómo la IA puede ayudarte!</p>
+            </div>
+        {% else %}
+            <div class="guest-section text-center">
+                <div class="guest-icon mb-3">
+                    <i class="fas fa-user-plus fa-3x text-info"></i>
+                </div>
+                <h4 class="text-info">Inicia sesión para ver tus listas</h4>
+                <p class="text-muted">Regístrate o inicia sesión para crear y gestionar tus listas de compras.</p>
+            </div>
+        {% endif %}
+
+        <!-- Sección de características -->
+        <div class="features-section mt-5">
+            <h3 class="section-title text-center mb-4">
+                <i class="fas fa-star me-2"></i>
+                Características Principales
+            </h3>
+            
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="feature-card text-center">
+                        <div class="feature-icon mb-3">
+                            <i class="fas fa-brain fa-2x text-primary"></i>
+                        </div>
+                        <h5>IA Inteligente</h5>
+                        <p class="text-muted">
+                            Nuestra IA analiza tus necesidades y sugiere los mejores productos 
+                            según tu presupuesto y preferencias.
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="feature-card text-center">
+                        <div class="feature-icon mb-3">
+                            <i class="fas fa-tags fa-2x text-success"></i>
+                        </div>
+                        <h5>Múltiples Opciones</h5>
+                        <p class="text-muted">
+                            Recibe sugerencias en diferentes rangos de precios: económico, 
+                            intermedio y de calidad premium.
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="feature-card text-center">
+                        <div class="feature-icon mb-3">
+                            <i class="fas fa-chart-line fa-2x text-warning"></i>
+                        </div>
+                        <h5>Análisis de Costos</h5>
+                        <p class="text-muted">
+                            Calcula automáticamente el costo total de tu lista y 
+                            compara diferentes opciones.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

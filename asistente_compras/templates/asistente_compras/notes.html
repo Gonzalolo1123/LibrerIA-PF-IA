@@ -1,0 +1,458 @@
+{% extends 'asistente_compras/base.html' %}
+
+{% block title %}Crear Nueva Lista - Asistente de Compras de Librería con IA{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <!-- Listas Estándar -->
+        <div class="standard-lists-section mb-5">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-star me-2"></i>
+                        Listas Predefinidas por Etapa Educacional
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Selecciona una lista predefinida según la etapa educacional o crea tu lista personalizada más abajo.
+                    </p>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-child fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Preescolar</h5>
+                                    <p class="card-text text-muted">Productos para niños en etapa preescolar</p>
+                                    <ul class="list-unstyled text-start small">
+                                        <li>• Cuadernos de dibujo</li>
+                                        <li>• Lápices de colores</li>
+                                        <li>• Crayones y temperas</li>
+                                        <li>• Materiales de arte</li>
+                                    </ul>
+                                    <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#qualityModal" data-list-type="preescolar">
+                                        <i class="fas fa-plus me-1"></i>
+                                        Crear Lista
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-graduation-cap fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Educación Básica</h5>
+                                    <p class="card-text text-muted">Productos para 1° a 8° básico</p>
+                                    <ul class="list-unstyled text-start small">
+                                        <li>• Cuadernos universitarios</li>
+                                        <li>• Lápices y gomas</li>
+                                        <li>• Reglas y tijeras</li>
+                                        <li>• Mochila escolar</li>
+                                    </ul>
+                                    <a href="#" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#qualityModal" data-list-type="basica">
+                                        <i class="fas fa-plus me-1"></i>
+                                        Crear Lista
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 border-info">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-book fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Educación Media</h5>
+                                    <p class="card-text text-muted">Productos para 1° a 4° medio</p>
+                                    <ul class="list-unstyled text-start small">
+                                        <li>• Más cuadernos</li>
+                                        <li>• Calculadora científica</li>
+                                        <li>• Material de dibujo</li>
+                                        <li>• Compás y transportador</li>
+                                    </ul>
+                                    <a href="#" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#qualityModal" data-list-type="media">
+                                        <i class="fas fa-plus me-1"></i>
+                                        Crear Lista
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 border-warning">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-university fa-3x text-warning mb-3"></i>
+                                    <h5 class="card-title">Universidad</h5>
+                                    <p class="card-text text-muted">Productos para estudiantes universitarios</p>
+                                    <ul class="list-unstyled text-start small">
+                                        <li>• Muchos cuadernos</li>
+                                        <li>• Calculadora avanzada</li>
+                                        <li>• USB y accesorios</li>
+                                        <li>• Material profesional</li>
+                                    </ul>
+                                    <a href="#" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#qualityModal" data-list-type="universidad">
+                                        <i class="fas fa-plus me-1"></i>
+                                        Crear Lista
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 border-danger">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-tools fa-3x text-danger mb-3"></i>
+                                    <h5 class="card-title">Carreras Técnicas</h5>
+                                    <p class="card-text text-muted">Productos para estudiantes técnicos</p>
+                                    <ul class="list-unstyled text-start small">
+                                        <li>• Material de dibujo técnico</li>
+                                        <li>• Escuadras y cartabón</li>
+                                        <li>• Marcadores permanentes</li>
+                                        <li>• USB de mayor capacidad</li>
+                                    </ul>
+                                    <a href="#" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#qualityModal" data-list-type="tecnico">
+                                        <i class="fas fa-plus me-1"></i>
+                                        Crear Lista
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 border-secondary">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-edit fa-3x text-secondary mb-3"></i>
+                                    <h5 class="card-title">Lista Personalizada</h5>
+                                    <p class="card-text text-muted">Crea tu lista desde cero</p>
+                                    <ul class="list-unstyled text-start small">
+                                        <li>• Totalmente personalizable</li>
+                                        <li>• Agrega tus propios ítems</li>
+                                        <li>• Control total</li>
+                                        <li>• Flexibilidad completa</li>
+                                    </ul>
+                                    <a href="#custom-form" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-down me-1"></i>
+                                        Ir al Formulario
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulario de creación de lista personalizada -->
+        <div class="create-list-form" id="custom-form">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Crear Lista Personalizada
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Nombre de la lista -->
+                        <div class="mb-4">
+                            <label for="list_name" class="form-label">
+                                <i class="fas fa-tag me-1"></i>
+                                Nombre de la Lista
+                            </label>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   id="list_name" 
+                                   name="list_name" 
+                                   value="{{ list_name|default:'' }}"
+                                   placeholder="Ej: Lista Escolar 2025, Útiles Primaria, etc."
+                                   required>
+                            <div class="form-text">
+                                Dale un nombre descriptivo a tu lista para identificarla fácilmente.
+                            </div>
+                        </div>
+
+                        <!-- Preferencia de calidad -->
+                        <div class="mb-4">
+                            <label for="quality_preference" class="form-label">
+                                <i class="fas fa-star me-1"></i>
+                                Preferencia de Calidad
+                            </label>
+                            <select class="form-select form-select-lg" id="quality_preference" name="quality_preference">
+                                <option value="cualquiera" {% if quality_preference == 'cualquiera' %}selected{% endif %}>
+                                    Cualquier calidad (más opciones)
+                                </option>
+                                <option value="economico" {% if quality_preference == 'economico' %}selected{% endif %}>
+                                    Solo económicos (mejor precio)
+                                </option>
+                                <option value="intermedio" {% if quality_preference == 'intermedio' %}selected{% endif %}>
+                                    Solo intermedios (balance calidad-precio)
+                                </option>
+                                <option value="calidad" {% if quality_preference == 'calidad' %}selected{% endif %}>
+                                    Solo de calidad (mejor calidad)
+                                </option>
+                            </select>
+                            <div class="form-text">
+                                <strong>Económico:</strong> Productos básicos, mejor precio | 
+                                <strong>Intermedio:</strong> Balance entre calidad y precio | 
+                                <strong>Calidad:</strong> Productos premium, mejor durabilidad
+                            </div>
+                        </div>
+
+                        <!-- Área de texto para los ítems -->
+                        <div class="mb-4">
+                            <label for="items_text" class="form-label">
+                                <i class="fas fa-list me-1"></i>
+                                Lista de Útiles Escolares
+                            </label>
+                            <textarea class="form-control" 
+                                      id="items_text" 
+                                      name="items_text" 
+                                      rows="12" 
+                                      placeholder="Ingresa tu lista de útiles aquí. Puedes escribir cada ítem en una línea separada.
+
+Ejemplos:
+3 cuadernos A4
+2 lápices HB
+1 mochila escolar
+5 carpetas
+2 reglas
+1 calculadora
+..."
+                                      required>{{ items_text|default:'' }}</textarea>
+                            <div class="form-text">
+                                <strong>Formato:</strong> Escribe cada ítem en una línea separada. 
+                                Puedes especificar la cantidad al inicio: "3 cuadernos" o simplemente "cuaderno" (se asumirá 1).
+                            </div>
+                        </div>
+
+                        <!-- Información sobre la IA -->
+                        <div class="ai-info alert alert-info">
+                            <h5 class="alert-heading">
+                                <i class="fas fa-robot me-2"></i>
+                                ¿Cómo funciona la IA?
+                            </h5>
+                            <p class="mb-2">
+                                Nuestra inteligencia artificial analizará tu lista y te sugerirá:
+                            </p>
+                            <ul class="mb-0">
+                                <li><strong>Productos específicos</strong> de nuestro catálogo</li>
+                                <li><strong>Múltiples opciones</strong> en diferentes rangos de precios</li>
+                                <li><strong>Categorías de calidad:</strong> económico, intermedio, premium</li>
+                                <li><strong>Precios actualizados</strong> y disponibilidad en stock</li>
+                            </ul>
+                        </div>
+
+                        <!-- Botones de acción -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'asistente_compras:home' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                Volver al Inicio
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-magic me-2"></i>
+                                Procesar con IA
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ejemplos de listas -->
+        <div class="examples-section mt-5">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Ejemplos de Listas
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="text-primary">Lista Básica Primaria</h5>
+                            <pre class="example-list">2 cuadernos A4
+3 lápices HB
+1 goma de borrar
+1 regla
+1 tijera
+1 pegamento
+1 mochila</pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="text-success">Lista Secundaria</h5>
+                            <pre class="example-list">5 cuadernos A4
+2 lápices HB
+1 calculadora científica
+1 carpeta con anillos
+1 agenda
+1 mochila
+1 estuche</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para selección de calidad -->
+<div class="modal fade" id="qualityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-star me-2"></i>
+                    Seleccionar Calidad de Productos
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">¿Qué calidad de productos prefieres para tu lista?</p>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
+                                <h6 class="card-title">Económico</h6>
+                                <p class="card-text small text-muted">Mejor precio, productos básicos</p>
+                                <button class="btn btn-success btn-sm create-standard-btn" data-quality="economico">
+                                    Seleccionar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-warning">
+                            <div class="card-body text-center">
+                                <i class="fas fa-balance-scale fa-2x text-warning mb-2"></i>
+                                <h6 class="card-title">Intermedio</h6>
+                                <p class="card-text small text-muted">Balance calidad-precio</p>
+                                <button class="btn btn-warning btn-sm create-standard-btn" data-quality="intermedio">
+                                    Seleccionar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-crown fa-2x text-primary mb-2"></i>
+                                <h6 class="card-title">Calidad</h6>
+                                <p class="card-text small text-muted">Mejor calidad, mayor durabilidad</p>
+                                <button class="btn btn-primary btn-sm create-standard-btn" data-quality="calidad">
+                                    Seleccionar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-secondary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-random fa-2x text-secondary mb-2"></i>
+                                <h6 class="card-title">Cualquiera</h6>
+                                <p class="card-text small text-muted">Más opciones disponibles</p>
+                                <button class="btn btn-secondary btn-sm create-standard-btn" data-quality="cualquiera">
+                                    Seleccionar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let selectedListType = null;
+
+// Validación del formulario
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Contador de caracteres para el textarea
+document.getElementById('items_text').addEventListener('input', function() {
+    var length = this.value.length;
+    var maxLength = 2000; // Límite razonable
+    
+    if (length > maxLength * 0.8) {
+        this.style.borderColor = '#ffc107';
+    } else {
+        this.style.borderColor = '';
+    }
+});
+
+// Manejo del modal de calidad
+document.addEventListener('DOMContentLoaded', function() {
+    // Capturar el tipo de lista cuando se abre el modal
+    const qualityModal = document.getElementById('qualityModal');
+    if (qualityModal) {
+        qualityModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            selectedListType = button.getAttribute('data-list-type');
+        });
+    }
+
+    // Manejar la selección de calidad
+    document.querySelectorAll('.create-standard-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const quality = this.getAttribute('data-quality');
+            if (selectedListType && quality) {
+                createStandardList(selectedListType, quality);
+            }
+        });
+    });
+});
+
+// Función para crear lista estándar
+function createStandardList(listType, quality) {
+    // Cerrar el modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('qualityModal'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Mostrar mensaje de carga
+    const loadingMessage = document.createElement('div');
+    loadingMessage.className = 'alert alert-info text-center';
+    loadingMessage.innerHTML = `
+        <i class="fas fa-spinner fa-spin me-2"></i>
+        Creando lista estándar...
+    `;
+    document.querySelector('.container').insertBefore(loadingMessage, document.querySelector('.container').firstChild);
+    
+    // Redirigir a la URL de creación de lista estándar
+    const url = `{% url 'asistente_compras:create_standard_list' 'PLACEHOLDER' %}`.replace('PLACEHOLDER', listType);
+    window.location.href = url + '?quality_preference=' + quality;
+}
+</script>
+{% endblock %} 

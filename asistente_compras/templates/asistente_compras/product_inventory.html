@@ -1,0 +1,386 @@
+{% extends 'asistente_compras/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="mb-0">
+                    <i class="fas fa-boxes text-primary"></i> {{ title }}
+                </h1>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createProductModal">
+                    <i class="fas fa-plus"></i> Agregar Producto
+                </button>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card">
+                <div class="card-body">
+                    {% if products %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Marca</th>
+                                        <th>Precio</th>
+                                        <th>Stock</th>
+                                        <th>Categoría</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for product in products %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ product.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ product.description|truncatechars:50 }}</small>
+                                        </td>
+                                        <td>{{ product.brand }}</td>
+                                        <td>${{ product.price|floatformat:0 }}</td>
+                                        <td>
+                                            <span class="badge {% if product.stock > 20 %}bg-success{% elif product.stock > 5 %}bg-warning{% else %}bg-danger{% endif %}">
+                                                {{ product.stock }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if product.quality_category == 'calidad' %}bg-primary{% elif product.quality_category == 'intermedio' %}bg-info{% else %}bg-secondary{% endif %}">
+                                                {{ product.quality_category|title }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary" 
+                                                        onclick="editProduct({{ product.id }}, '{{ product.name }}', '{{ product.description }}', {{ product.price }}, '{{ product.brand }}', '{{ product.quality_category }}', {{ product.stock }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" 
+                                                        onclick="deleteProduct({{ product.id }}, '{{ product.name }}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No hay productos en el inventario</h4>
+                            <p class="text-muted">Comienza agregando tu primer producto.</p>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createProductModal">
+                                <i class="fas fa-plus"></i> Agregar Producto
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear Producto -->
+<div class="modal fade" id="createProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus text-success"></i> Agregar Nuevo Producto
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createProductForm">
+                    <div class="mb-3">
+                        <label for="createName" class="form-label">Nombre del Producto *</label>
+                        <input type="text" class="form-control" id="createName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="createDescription" class="form-label">Descripción *</label>
+                        <textarea class="form-control" id="createDescription" rows="3" required></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="createPrice" class="form-label">Precio *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="createPrice" min="0" step="1" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="createStock" class="form-label">Stock *</label>
+                                <input type="number" class="form-control" id="createStock" min="0" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="createBrand" class="form-label">Marca *</label>
+                                <input type="text" class="form-control" id="createBrand" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="createQuality" class="form-label">Categoría de Calidad *</label>
+                                <select class="form-select" id="createQuality" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="economico">Económico</option>
+                                    <option value="intermedio">Intermedio</option>
+                                    <option value="calidad">Calidad</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="createProduct()">
+                    <i class="fas fa-save"></i> Guardar Producto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Producto -->
+<div class="modal fade" id="editProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit text-primary"></i> Editar Producto
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editProductForm">
+                    <input type="hidden" id="editProductId">
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">Nombre del Producto *</label>
+                        <input type="text" class="form-control" id="editName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDescription" class="form-label">Descripción *</label>
+                        <textarea class="form-control" id="editDescription" rows="3" required></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editPrice" class="form-label">Precio *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="editPrice" min="0" step="1" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editStock" class="form-label">Stock *</label>
+                                <input type="number" class="form-control" id="editStock" min="0" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editBrand" class="form-label">Marca *</label>
+                                <input type="text" class="form-control" id="editBrand" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editQuality" class="form-label">Categoría de Calidad *</label>
+                                <select class="form-select" id="editQuality" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="economico">Económico</option>
+                                    <option value="intermedio">Intermedio</option>
+                                    <option value="calidad">Calidad</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="updateProduct()">
+                    <i class="fas fa-save"></i> Actualizar Producto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación para Eliminar -->
+<div class="modal fade" id="deleteProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-danger"></i> Confirmar Eliminación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que quieres eliminar el producto <strong id="deleteProductName"></strong>?</p>
+                <p class="text-danger"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteProduct()">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentProductId = null;
+
+function createProduct() {
+    const formData = {
+        name: document.getElementById('createName').value,
+        description: document.getElementById('createDescription').value,
+        price: parseFloat(document.getElementById('createPrice').value),
+        brand: document.getElementById('createBrand').value,
+        quality_category: document.getElementById('createQuality').value,
+        stock: parseInt(document.getElementById('createStock').value)
+    };
+
+    fetch('{% url "asistente_compras:product_create" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            document.getElementById('createProductForm').reset();
+            bootstrap.Modal.getInstance(document.getElementById('createProductModal')).hide();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('danger', 'Error al crear el producto');
+    });
+}
+
+function editProduct(id, name, description, price, brand, quality, stock) {
+    currentProductId = id;
+    document.getElementById('editProductId').value = id;
+    document.getElementById('editName').value = name;
+    document.getElementById('editDescription').value = description;
+    document.getElementById('editPrice').value = price;
+    document.getElementById('editBrand').value = brand;
+    document.getElementById('editQuality').value = quality;
+    document.getElementById('editStock').value = stock;
+    
+    new bootstrap.Modal(document.getElementById('editProductModal')).show();
+}
+
+function updateProduct() {
+    const formData = {
+        name: document.getElementById('editName').value,
+        description: document.getElementById('editDescription').value,
+        price: parseFloat(document.getElementById('editPrice').value),
+        brand: document.getElementById('editBrand').value,
+        quality_category: document.getElementById('editQuality').value,
+        stock: parseInt(document.getElementById('editStock').value)
+    };
+
+    fetch(`/productos/${currentProductId}/actualizar/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            bootstrap.Modal.getInstance(document.getElementById('editProductModal')).hide();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('danger', 'Error al actualizar el producto');
+    });
+}
+
+function deleteProduct(id, name) {
+    currentProductId = id;
+    document.getElementById('deleteProductName').textContent = name;
+    new bootstrap.Modal(document.getElementById('deleteProductModal')).show();
+}
+
+function confirmDeleteProduct() {
+    fetch(`/productos/${currentProductId}/eliminar/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            bootstrap.Modal.getInstance(document.getElementById('deleteProductModal')).hide();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('danger', 'Error al eliminar el producto');
+    });
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %} 

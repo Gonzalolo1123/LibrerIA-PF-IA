@@ -1,0 +1,79 @@
+{% extends 'asistente_compras/base.html' %}
+
+{% block title %}Iniciar Sesión{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm mt-5">
+            <div class="card-body p-4">
+                <h2 class="card-title text-center mb-4"><i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión</h2>
+                
+                {% if form.errors %}
+                    <div class="alert alert-danger" role="alert">
+                        Tu nombre de usuario y contraseña no coinciden. Por favor, inténtalo de nuevo.
+                    </div>
+                {% endif %}
+
+                {% if next %}
+                    {% if user.is_authenticated %}
+                        <div class="alert alert-warning" role="alert">
+                            Tu cuenta no tiene acceso a esta página. Para proceder, por favor, inicia sesión con una cuenta que tenga acceso.
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info" role="alert">
+                            Por favor, inicia sesión para ver esta página.
+                        </div>
+                    {% endif %}
+                {% endif %}
+                
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label"><i class="fas fa-user me-1"></i>Usuario</label>
+                        <input type="text" name="username" id="id_username" class="form-control" required>
+                        <div class="invalid-feedback">Por favor, introduce tu nombre de usuario.</div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="id_password" class="form-label"><i class="fas fa-lock me-1"></i>Contraseña</label>
+                        <input type="password" name="password" id="id_password" class="form-control" required>
+                        <div class="invalid-feedback">Por favor, introduce tu contraseña.</div>
+                    </div>
+                    
+                    <input type="hidden" name="next" value="{{ next }}">
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-sign-in-alt me-2"></i>Ingresar</button>
+                    </div>
+                </form>
+                
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        ¿Olvidaste tu contraseña? <a href="{% url 'password_reset' %}">Restablecer</a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Activar validación de Bootstrap
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+</script>
+{% endblock %} 

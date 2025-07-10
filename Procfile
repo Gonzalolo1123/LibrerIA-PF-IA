@@ -1,0 +1,1 @@
+web: gunicorn LibreriaIA.wsgi --log-file - 

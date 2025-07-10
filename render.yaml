@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: libreriaia
+    env: python
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput"
+    startCommand: "gunicorn LibreriaIA.wsgi --log-file -"
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: {
+          name: libreriaia_db,
+          property: connectionString
+        }
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4 # Ajusta según las necesidades de tu servidor
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "libreriaia.onrender.com,www.libreriaia.onrender.com" # Reemplaza con tus dominios de Render
+      - key: DJANGO_LANGUAGE_CODE
+        value: "es-es"
+      - key: DJANGO_TIME_ZONE
+        value: "America/Argentina/Buenos_Aires"
+
+  - type: database
+    name: libreriaia_db
+    databaseName: libreriaia_db
+    plan: free # Puedes cambiar a un plan de pago si necesitas más recursos 
