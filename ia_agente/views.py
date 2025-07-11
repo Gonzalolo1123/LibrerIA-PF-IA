@@ -12,13 +12,14 @@ class IAQueryView(View):
 
     def post(self, request):
         consulta = request.POST.get('consulta')
+        productos = []
+        error = None
         if consulta:
-            # Usar el agente IA real
-            respuesta = ai_agent.process_query(consulta)
-        else:
-            respuesta = "Por favor, ingresa una consulta."
-        
+            resultado = ai_agent.process_query(consulta)
+            productos = resultado.get('productos', [])
+            error = resultado.get('error')
         return render(request, self.template_name, {
-            'consulta': consulta, 
-            'respuesta': respuesta
+            'consulta': consulta,
+            'productos': productos,
+            'error': error
         })

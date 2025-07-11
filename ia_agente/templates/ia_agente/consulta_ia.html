@@ -19,15 +19,83 @@
                         </button>
                     </div>
                 </form>
-                {% if respuesta %}
+                {% if error %}
+                    <hr>
+                    <div class="alert alert-danger mt-4">{{ error }}</div>
+                {% elif productos %}
                     <hr>
                     <div class="ai-info alert mt-4 fade-in" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); border: 1px solid #90caf9; color: #1565c0;">
                         <h5 class="alert-heading"><i class="fas fa-robot me-2"></i>Respuesta del Agente</h5>
-                        <div>{{ respuesta }}</div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Marca</th>
+                                        <th>Calidad</th>
+                                        <th>Precio</th>
+                                        <th>Stock</th>
+                                        <th>Cantidad</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in productos %}
+                                    <tr>
+                                        <td><strong>{{ p.producto }}</strong></td>
+                                        <td>{{ p.marca }}</td>
+                                        <td><span class="badge bg-info">{{ p.calidad }}</span></td>
+                                        <td>${{ p.precio }}</td>
+                                        <td>{{ p.stock }}</td>
+                                        <td><span class="badge bg-primary">{{ p.cantidad_sugerida }}</span></td>
+                                        <td>
+                                            <button class="btn btn-outline-secondary btn-sm" onclick="modificarProducto({{ forloop.counter0 }})"><i class="fas fa-edit"></i></button>
+                                            <button class="btn btn-outline-danger btn-sm" onclick="eliminarProducto({{ forloop.counter0 }})"><i class="fas fa-trash"></i></button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-success btn-sm" onclick="agregarProducto()"><i class="fas fa-plus"></i> Agregar producto</button>
+                        </div>
+                        <div id="acciones-productos" class="mt-2"></div>
                     </div>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Obtener la lista de productos desde Django para JS
+var productos = [];
+{% if productos %}
+    productos = JSON.parse('{{ productos|safe|escapejs }}');
+{% endif %}
+
+function agregarProducto() {
+    const nombre = prompt('Nombre del producto a agregar:');
+    if (nombre) {
+        alert('Funcionalidad de agregar producto: ' + nombre + '\n(Implementar lógica de frontend para persistir temporalmente)');
+    }
+}
+function modificarProducto(index) {
+    const producto = productos[index];
+    const nombre = prompt('Nuevo nombre para el producto:', producto.producto);
+    if (nombre) {
+        producto.producto = nombre;
+        alert('Funcionalidad de modificar producto: ' + producto.producto + '\n(Implementar lógica de frontend para persistir temporalmente)');
+    }
+}
+function eliminarProducto(index) {
+    const producto = productos[index];
+    if (confirm('¿Estás seguro de que quieres eliminar el producto "' + producto.producto + '"?')) {
+        alert('Funcionalidad de eliminar producto: ' + producto.producto + '\n(Implementar lógica de frontend para persistir temporalmente)');
+    }
+}
+</script>
 {% endblock %} 
