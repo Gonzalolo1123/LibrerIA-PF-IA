@@ -37,7 +37,9 @@ class AIAgent:
                 # Configuración para HuggingFace
                 self.llm = HuggingFaceLLM()
             except Exception as e:
-                raise  # Forzar excepción para no hacer fallback silencioso
+                print(f"[ADVERTENCIA] Error configurando HuggingFace: {e}")
+                print("[ADVERTENCIA] Usando MockLLM como fallback")
+                self.llm = MockLLM()
         else:
             raise ValueError(f"Proveedor no soportado: {self.llm_provider}")
     
@@ -51,15 +53,36 @@ class AIAgent:
             context = self._prepare_context(query, relevant_products)
             response = self.llm.generate_response(context)
             print("[DEPURACIÓN] Respuesta cruda del agente IA:\n", response)
+            # Limpiar errores comunes antes de decodificar
+            response_limpio = self._limpiar_json_llm(response)
             # Intentar decodificar el JSON directamente
             try:
-                productos = json.loads(response)
+                productos = json.loads(response_limpio)
                 if not isinstance(productos, list):
                     raise ValueError('El JSON no es una lista')
-                return {"productos": productos, "error": None}
+                # Validar claves
+                claves_validas = {"producto", "marca", "precio", "calidad", "stock", "cantidad_sugerida"}
+                productos_limpios = []
+                for obj in productos:
+                    if not isinstance(obj, dict):
+                        continue
+                    claves_obj = set(obj.keys())
+                    if not claves_obj.issubset(claves_validas):
+                        print("[ADVERTENCIA] Objeto con claves inesperadas:", obj)
+                    # Solo conservar las claves válidas y asignar valores por defecto
+                    limpio = {
+                        'producto': obj.get('producto', ''),
+                        'marca': obj.get('marca', 'Genérica'),
+                        'precio': obj.get('precio', 0),
+                        'calidad': obj.get('calidad', 'Económico'),
+                        'stock': obj.get('stock', 0),
+                        'cantidad_sugerida': obj.get('cantidad_sugerida', 1)
+                    }
+                    productos_limpios.append(limpio)
+                return {"productos": productos_limpios, "error": None}
             except Exception:
                 # Intentar extraer el primer bloque de lista JSON con regex
-                match = re.search(r'(\[.*?\])', response, re.DOTALL)
+                match = re.search(r'(\[.*?\])', response_limpio, re.DOTALL)
                 if match:
                     try:
                         productos = json.loads(match.group(1))
@@ -78,13 +101,11 @@ class AIAgent:
             "query": query,
             "products": products,
             "system_prompt": (
-                "Eres un asistente de librería especializado en útiles escolares. "
-                "Responde siempre en español latino. "
-                "Cuando el cliente haga una consulta, responde SOLO con una lista en formato JSON válido (usa comillas dobles), sin ningún texto antes o después. "
-                "El JSON debe ser una lista de objetos con las claves: 'producto', 'marca', 'precio', 'calidad', 'stock', 'cantidad_sugerida'. "
-                "Incluye solo los productos más relevantes para la consulta y ajusta la cantidad sugerida según lo que el cliente pide. "
-                "No incluyas comentarios, saludos ni explicaciones. No formules preguntas. No agregues texto fuera del JSON. "
-                "Ejemplo de respuesta válida: [{\"producto\": \"Lápiz HB\", \"marca\": \"Faber-Castell\", \"precio\": 350, \"calidad\": \"Económico\", \"stock\": 100, \"cantidad_sugerida\": 2}] "
+                "INSTRUCCIONES CRÍTICAS: Responde ÚNICAMENTE con un array JSON válido. "
+                "NO incluyas saludos, explicaciones, ni texto fuera del JSON. "
+                "Cada objeto debe tener estas claves exactas: 'producto', 'marca', 'precio', 'calidad', 'stock', 'cantidad_sugerida'. "
+                "Ejemplo de respuesta correcta: [{\"producto\": \"Lápiz HB\", \"marca\": \"Faber-Castell\", \"precio\": 350, \"calidad\": \"Económico\", \"stock\": 100, \"cantidad_sugerida\": 2}] "
+                "Si no hay productos relevantes, devuelve un array vacío: []"
             )
         }
         return context
@@ -99,6 +120,16 @@ class AIAgent:
         except Exception as e:
             print(f"Error guardando log: {e}")
 
+    def _limpiar_json_llm(self, texto):
+        # Corregir claves duplicadas tipo '"calidad": "calidad": "calidad"' -> '"calidad": "calidad"'
+        import re
+        texto = re.sub(r'("[a-zA-Z_]+"):\s*\1:\s*', r'\1: ', texto)
+        # Reemplazar marcas vacías por 'Genérica'
+        texto = re.sub(r'("marca"\s*:\s*)"\s*"', r'\1"Genérica"', texto)
+        # Eliminar espacios innecesarios
+        texto = re.sub(r',\s*}', '}', texto)
+        return texto
+
 
 class MockLLM:
     """LLM simulado para desarrollo y pruebas."""
@@ -109,19 +140,21 @@ class MockLLM:
         products = context["products"]
         
         if not products:
-            return "No encontré productos específicos para tu consulta. ¿Podrías ser más específico sobre qué necesitas?"
+            return "[]"
         
-        response = f"Basándome en tu consulta: '{query}', te sugiero los siguientes productos:\n\n"
+        # Crear respuesta JSON válida
+        productos_json = []
+        for product in products[:3]:  # Máximo 3 productos
+            productos_json.append({
+                "producto": product.get('text', 'Producto'),
+                "marca": product.get('metadata', {}).get('brand', 'Genérica'),
+                "precio": product.get('metadata', {}).get('price', 0),
+                "calidad": product.get('metadata', {}).get('quality', 'Económico'),
+                "stock": product.get('metadata', {}).get('stock', 0),
+                "cantidad_sugerida": 1
+            })
         
-        for i, product in enumerate(products[:3], 1):
-            response += f"{i}. **{product.get('text', 'Producto')}**\n"
-            response += f"   - Precio: ${product.get('metadata', {}).get('price', 0)}\n"
-            response += f"   - Stock: {product.get('metadata', {}).get('stock', 0)} unidades\n"
-            response += f"   - Calidad: {product.get('metadata', {}).get('quality', 'N/A')}\n\n"
-        
-        response += "Estos productos parecen ser los más relevantes para tu necesidad. ¿Te gustaría que te ayude con algo más específico?"
-        
-        return response
+        return json.dumps(productos_json, ensure_ascii=False)
 
 
 class OpenAILLM:
@@ -152,7 +185,7 @@ class HuggingFaceLLM:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=512,  # Aumentado para maximizar la longitud de respuesta
-                temperature=0.7,
+                temperature=0.1,  # Reducido para mayor determinismo
             )
             # El resultado es un objeto con choices[0].message.content
             return response.choices[0].message.content
@@ -167,10 +200,10 @@ class HuggingFaceLLM:
             for p in productos
         ])
         prompt = (
-            f"{context['system_prompt']}\n"
-            f"Consulta del cliente: {context['query']}\n"
-            f"Productos relevantes:\n{productos_str}\n"
-            "Responde de forma clara, útil y en español latino."
+            f"{context['system_prompt']}\n\n"
+            f"CONSULTA: {context['query']}\n"
+            f"PRODUCTOS DISPONIBLES:\n{productos_str}\n\n"
+            f"RESPUESTA (solo JSON):"
         )
         return prompt
 

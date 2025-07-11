@@ -69,6 +69,81 @@
 </div>
 {% endblock %}
 
+<!-- Modals para agregar, modificar y eliminar productos -->
+<div class="modal fade" id="modalProducto" tabindex="-1" aria-labelledby="modalProductoLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalProductoLabel">Producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formProducto">
+          <div class="mb-3">
+            <label for="inputProducto" class="form-label">Producto</label>
+            <input type="text" class="form-control" id="inputProducto" required>
+          </div>
+          <div class="mb-3">
+            <label for="inputMarca" class="form-label">Marca</label>
+            <input type="text" class="form-control" id="inputMarca" required>
+          </div>
+          <div class="mb-3">
+            <label for="inputCalidad" class="form-label">Calidad</label>
+            <input type="text" class="form-control" id="inputCalidad" required>
+          </div>
+          <div class="mb-3">
+            <label for="inputPrecio" class="form-label">Precio</label>
+            <input type="number" class="form-control" id="inputPrecio" min="0" required>
+          </div>
+          <div class="mb-3">
+            <label for="inputStock" class="form-label">Stock</label>
+            <input type="number" class="form-control" id="inputStock" min="0" required>
+          </div>
+          <div class="mb-3">
+            <label for="inputCantidad" class="form-label">Cantidad sugerida</label>
+            <input type="number" class="form-control" id="inputCantidad" min="1" required>
+          </div>
+          <input type="hidden" id="inputIndex">
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnGuardarProducto">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalEliminar" tabindex="-1" aria-labelledby="modalEliminarLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalEliminarLabel">Eliminar producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p id="textoEliminar">¿Estás seguro de que quieres eliminar este producto?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmarEliminar">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast para mensajes -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <div id="toastMensaje" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMensajeTexto">
+        Mensaje
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
+
 {% block extra_js %}
 <script>
 // Obtener la lista de productos desde Django para JS
@@ -77,25 +152,111 @@ var productos = [];
     productos = JSON.parse('{{ productos|safe|escapejs }}');
 {% endif %}
 
+let productoAEliminar = null;
+
+function renderTablaProductos() {
+    const tbody = document.querySelector('.table tbody');
+    tbody.innerHTML = '';
+    productos.forEach((p, i) => {
+        tbody.innerHTML += `
+        <tr>
+            <td><strong>${p.producto}</strong></td>
+            <td>${p.marca}</td>
+            <td><span class="badge bg-info">${p.calidad}</span></td>
+            <td>$${p.precio}</td>
+            <td>${p.stock}</td>
+            <td><span class="badge bg-primary">${p.cantidad_sugerida}</span></td>
+            <td>
+                <button class="btn btn-outline-secondary btn-sm" onclick="modificarProducto(${i})"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-outline-danger btn-sm" onclick="eliminarProducto(${i})"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+}
+
+function showToast(mensaje, tipo = 'primary') {
+    const toast = new bootstrap.Toast(document.getElementById('toastMensaje'));
+    const toastDiv = document.getElementById('toastMensaje');
+    const toastTexto = document.getElementById('toastMensajeTexto');
+    toastDiv.className = `toast align-items-center text-bg-${tipo} border-0`;
+    toastTexto.textContent = mensaje;
+    toast.show();
+}
+
 function agregarProducto() {
-    const nombre = prompt('Nombre del producto a agregar:');
-    if (nombre) {
-        alert('Funcionalidad de agregar producto: ' + nombre + '\n(Implementar lógica de frontend para persistir temporalmente)');
-    }
+    document.getElementById('modalProductoLabel').textContent = 'Agregar producto';
+    document.getElementById('formProducto').reset();
+    document.getElementById('inputIndex').value = '';
+    var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
+    modal.show();
 }
+
 function modificarProducto(index) {
-    const producto = productos[index];
-    const nombre = prompt('Nuevo nombre para el producto:', producto.producto);
-    if (nombre) {
-        producto.producto = nombre;
-        alert('Funcionalidad de modificar producto: ' + producto.producto + '\n(Implementar lógica de frontend para persistir temporalmente)');
-    }
+    const p = productos[index];
+    document.getElementById('modalProductoLabel').textContent = 'Modificar producto';
+    document.getElementById('inputProducto').value = p.producto;
+    document.getElementById('inputMarca').value = p.marca;
+    document.getElementById('inputCalidad').value = p.calidad;
+    document.getElementById('inputPrecio').value = p.precio;
+    document.getElementById('inputStock').value = p.stock;
+    document.getElementById('inputCantidad').value = p.cantidad_sugerida;
+    document.getElementById('inputIndex').value = index;
+    var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
+    modal.show();
 }
+
 function eliminarProducto(index) {
-    const producto = productos[index];
-    if (confirm('¿Estás seguro de que quieres eliminar el producto "' + producto.producto + '"?')) {
-        alert('Funcionalidad de eliminar producto: ' + producto.producto + '\n(Implementar lógica de frontend para persistir temporalmente)');
+    productoAEliminar = index;
+    const p = productos[index];
+    document.getElementById('textoEliminar').textContent = `¿Estás seguro de que quieres eliminar el producto "${p.producto}"?`;
+    var modal = new bootstrap.Modal(document.getElementById('modalEliminar'));
+    modal.show();
+}
+
+document.getElementById('btnGuardarProducto').onclick = function() {
+    const nombre = document.getElementById('inputProducto').value.trim();
+    const marca = document.getElementById('inputMarca').value.trim();
+    const calidad = document.getElementById('inputCalidad').value.trim();
+    const precio = parseInt(document.getElementById('inputPrecio').value);
+    const stock = parseInt(document.getElementById('inputStock').value);
+    const cantidad = parseInt(document.getElementById('inputCantidad').value);
+    const index = document.getElementById('inputIndex').value;
+    if (!nombre || !marca || !calidad || isNaN(precio) || isNaN(stock) || isNaN(cantidad)) {
+        showToast('Por favor completa todos los campos correctamente.', 'danger');
+        return;
     }
+    const nuevoProducto = {
+        producto: nombre,
+        marca: marca,
+        calidad: calidad,
+        precio: precio,
+        stock: stock,
+        cantidad_sugerida: cantidad
+    };
+    if (index === '') {
+        productos.push(nuevoProducto);
+        showToast('Producto agregado exitosamente.', 'success');
+    } else {
+        productos[index] = nuevoProducto;
+        showToast('Producto modificado exitosamente.', 'info');
+    }
+    renderTablaProductos();
+    bootstrap.Modal.getInstance(document.getElementById('modalProducto')).hide();
+};
+
+document.getElementById('btnConfirmarEliminar').onclick = function() {
+    if (productoAEliminar !== null) {
+        productos.splice(productoAEliminar, 1);
+        renderTablaProductos();
+        showToast('Producto eliminado.', 'warning');
+        productoAEliminar = null;
+        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
+    }
+};
+
+// Render inicial si hay productos
+if (productos.length > 0) {
+    renderTablaProductos();
 }
 </script>
 {% endblock %} 

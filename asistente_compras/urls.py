@@ -41,4 +41,7 @@ urlpatterns = [
     path('productos/<int:product_id>/actualizar/', views.product_update, name='product_update'),
     path('productos/<int:product_id>/eliminar/', views.product_delete, name='product_delete'),
     path('productos/buscar/', views.search_products, name='search_products'),
+
+    # Vista para mostrar productos sugeridos por la IA como lista temporal
+    path('lista-ia/', views.list_detail_ia, name='list_detail_ia'),
 ] 

@@ -889,3 +889,42 @@ def export_list_to_pdf(request, list_id):
     response.write(pdf)
     
     return response
+
+def list_detail_ia(request):
+    """
+    Vista para mostrar los productos sugeridos por la IA como una lista temporal, usando el template de detalle de lista.
+    """
+    productos = request.session.get('productos_sugeridos', [])
+    # Limpiar la sesión para evitar mostrar la misma lista en recargas
+    if 'productos_sugeridos' in request.session:
+        del request.session['productos_sugeridos']
+    # Adaptar los datos para el template list_detail.html
+    class TempList:
+        name = 'Sugerencia Inteligente'
+        created_at = updated_at = None
+        def get_total_estimated_cost(self):
+            return sum(p.get('precio', 0) * p.get('cantidad_sugerida', 1) for p in productos)
+        def get_total_items(self):
+            return sum(p.get('cantidad_sugerida', 1) for p in productos)
+    class TempItem:
+        def __init__(self, p):
+            self.item_name_raw = p.get('producto', '')
+            self.quantity_requested = p.get('cantidad_sugerida', 1)
+            self.suggested_product = type('Prod', (), {
+                'name': p.get('producto', ''),
+                'brand': p.get('marca', ''),
+                'quality_category': p.get('calidad', ''),
+                'get_quality_category_display': lambda self: p.get('calidad', ''),
+                'price': p.get('precio', 0),
+                'stock': p.get('stock', 0)
+            })()
+            self.get_estimated_cost = lambda: p.get('precio', 0) * p.get('cantidad_sugerida', 1)
+    items = [TempItem(p) for p in productos]
+    context = {
+        'title': 'Sugerencia Inteligente de Productos',
+        'shopping_list': TempList(),
+        'items': items,
+        'total_estimated_cost': sum(p.get('precio', 0) * p.get('cantidad_sugerida', 1) for p in productos),
+        'total_items': sum(p.get('cantidad_sugerida', 1) for p in productos)
+    }
+    return render(request, 'asistente_compras/list_detail.html', context)
