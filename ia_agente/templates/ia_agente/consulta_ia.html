@@ -1,0 +1,33 @@
+{% extends 'asistente_compras/base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-sm mb-4" style="border-radius: var(--border-radius); background: var(--light-color); min-height: 420px;">
+            <div class="card-header" style="background: var(--primary-color); border-radius: var(--border-radius) var(--border-radius) 0 0;">
+                <h3 class="mb-0" style="color: #222;"><i class="fas fa-comments me-2"></i>Consulta Inteligente a la Librería</h3>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="consulta" class="form-label">Describe lo que necesitas:</label>
+                        <textarea name="consulta" id="consulta" rows="7" class="form-control form-control-lg" style="font-size:1.3rem; min-height: 140px;" placeholder="Ej: Necesito útiles para 2do grado, con mochila y cartuchera">{{ consulta|default:'' }}</textarea>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-paper-plane me-2"></i>Consultar
+                        </button>
+                    </div>
+                </form>
+                {% if respuesta %}
+                    <hr>
+                    <div class="ai-info alert mt-4 fade-in" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); border: 1px solid #90caf9; color: #1565c0;">
+                        <h5 class="alert-heading"><i class="fas fa-robot me-2"></i>Respuesta del Agente</h5>
+                        <div>{{ respuesta }}</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'asistente_compras',  # Nuestra aplicación de asistente de compras
+    'ia_agente',
 ]
 
 MIDDLEWARE = [
