@@ -155,3 +155,5 @@ create_env.py
 media/
 staticfiles/
 *.env 
+models/
+*.gguf 
