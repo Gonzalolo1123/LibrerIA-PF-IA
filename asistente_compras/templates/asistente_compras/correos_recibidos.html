@@ -1,0 +1,284 @@
+{% extends 'asistente_compras/base.html' %}
+{% block content %}
+<h2 class="mb-4">Correos Recibidos</h2>
+<div class="d-flex justify-content-end mb-3">
+    <button id="actualizar-correos" class="btn btn-primary">
+        <i class="fas fa-sync-alt"></i> Actualizar
+    </button>
+</div>
+<table class="table table-hover align-middle shadow-sm rounded">
+    <thead class="table-light">
+        <tr>
+            <th>Remitente</th>
+            <th>Asunto</th>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody id="tabla-correos">
+        {% for correo in correos %}
+        <tr>
+            <td>{{ correo.remitente }}</td>
+            <td>{{ correo.asunto }}</td>
+            <td>{{ correo.fecha|slice:":10" }}</td>
+            <td>{{ correo.fecha|slice:"11:16" }}</td>
+            <td>
+                <button class="btn btn-outline-info btn-sm ver-correo" 
+                        data-id="{{ correo.id }}" 
+                        data-remitente="{{ correo.remitente }}" 
+                        data-asunto="{{ correo.asunto }}" 
+                        data-cuerpo="{{ correo.cuerpo|escapejs }}" 
+                        data-fecha="{{ correo.fecha|slice:':10' }}" 
+                        data-hora="{{ correo.fecha|slice:'11:16' }}">
+                    <i class="fas fa-eye"></i> Ver
+                </button>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center">No hay correos recibidos.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Modal -->
+<div class="modal fade" id="modalCorreo" tabindex="-1" aria-labelledby="modalCorreoLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalCorreoLabel"><i class="fas fa-envelope-open-text me-2"></i>Correo recibido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2"><strong>Remitente:</strong> <span id="modalRemitente"></span></div>
+        <div class="mb-2"><strong>Asunto:</strong> <span id="modalAsunto"></span></div>
+        <div class="mb-2"><strong>Fecha:</strong> <span id="modalFecha"></span> <strong>Hora:</strong> <span id="modalHora"></span></div>
+        <hr>
+        <div class="mb-2"><strong>Cuerpo:</strong></div>
+        <div id="modalCuerpo" class="border rounded p-3 bg-light font-monospace" style="white-space: pre-wrap; min-height: 100px;"></div>
+        <hr>
+        <div id="respuestaIASection" style="display:none;">
+          <label for="respuestaIA" class="form-label"><strong>Respuesta generada por IA:</strong></label>
+          <textarea id="respuestaIA" class="form-control mb-2" rows="6"></textarea>
+          <button id="enviarRespuestaIA" class="btn btn-success">
+            <i class="fas fa-paper-plane"></i> Enviar respuesta
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnResponderIA" class="btn btn-info">
+          <i class="fas fa-robot"></i> Responder con IA
+        </button>
+        <button id="btnEliminarCorreo" class="btn btn-danger">
+          <i class="fas fa-trash-alt"></i> Eliminar
+        </button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let correoActual = null;
+
+function decodeUnicodeAndFormat(text) {
+    // Reemplaza códigos Unicode comunes
+    let decoded = text
+        .replace(/\\u000D\\u000A|\\r\\n|\\n|\\r/g, '\n')
+        .replace(/\\u000A/g, '\n')
+        .replace(/\\u000D/g, '\n')
+        .replace(/\\u002D/g, '-')
+        .replace(/\\u002E/g, '.')
+        .replace(/\\u002C/g, ',')
+        .replace(/\\u00A0/g, ' ')
+        .replace(/\\u00B7/g, '·')
+        .replace(/\\u00E1/g, 'á')
+        .replace(/\\u00E9/g, 'é')
+        .replace(/\\u00ED/g, 'í')
+        .replace(/\\u00F3/g, 'ó')
+        .replace(/\\u00FA/g, 'ú')
+        .replace(/\\u00F1/g, 'ñ');
+    // Formatea listas: convierte líneas que empiezan con guion en <li>
+    let lines = decoded.split('\n');
+    let inList = false;
+    let html = '';
+    for (let line of lines) {
+        if (/^\s*- /.test(line) || /^- /.test(line)) {
+            if (!inList) { html += '<ul>'; inList = true; }
+            html += '<li>' + line.replace(/^\s*- /, '').replace(/^- /, '') + '</li>';
+        } else {
+            if (inList) { html += '</ul>'; inList = false; }
+            // Detectar tabla simple (separada por varios espacios)
+            if (/\s{2,}/.test(line)) {
+                let cols = line.split(/\s{2,}/).map(c => c.trim());
+                if (cols.length > 1) {
+                    html += '<div style="display:table;width:100%"><div style="display:table-row">';
+                    for (let col of cols) {
+                        html += '<div style="display:table-cell;padding:2px 8px;font-weight:bold">' + col + '</div>';
+                    }
+                    html += '</div></div>';
+                    continue;
+                }
+            }
+            html += line ? '<div>' + line + '</div>' : '<br>';
+        }
+    }
+    if (inList) html += '</ul>';
+    return html;
+}
+
+function mostrarModalCorreo(correo) {
+    correoActual = correo;
+    document.getElementById('modalRemitente').innerText = correo.remitente;
+    document.getElementById('modalAsunto').innerText = correo.asunto;
+    document.getElementById('modalFecha').innerText = correo.fecha;
+    document.getElementById('modalHora').innerText = correo.hora;
+    // Decodificar y formatear el cuerpo
+    let cuerpoFormateado = decodeUnicodeAndFormat(correo.cuerpo);
+    document.getElementById('modalCuerpo').innerHTML = cuerpoFormateado;
+    document.getElementById('respuestaIASection').style.display = 'none';
+    document.getElementById('respuestaIA').value = '';
+    var modal = new bootstrap.Modal(document.getElementById('modalCorreo'));
+    modal.show();
+}
+
+function asignarEventosModal() {
+    document.querySelectorAll('.ver-correo').forEach(btn => {
+        btn.onclick = function() {
+            mostrarModalCorreo({
+                id: this.getAttribute('data-id'),
+                remitente: this.getAttribute('data-remitente'),
+                asunto: this.getAttribute('data-asunto'),
+                cuerpo: this.getAttribute('data-cuerpo'),
+                fecha: this.getAttribute('data-fecha'),
+                hora: this.getAttribute('data-hora')
+            });
+        }
+    });
+}
+asignarEventosModal();
+
+document.getElementById('btnEliminarCorreo').onclick = function() {
+    if (correoActual) {
+        fetch('/correos/eliminar/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'id=' + encodeURIComponent(correoActual.id)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                var modal = bootstrap.Modal.getInstance(document.getElementById('modalCorreo'));
+                modal.hide();
+                document.querySelector(`button[data-id='${correoActual.id}']`).closest('tr').remove();
+            }
+        });
+    }
+};
+
+document.getElementById('btnResponderIA').onclick = function() {
+    console.log('Botón Responder con IA presionado');
+    if (correoActual) {
+        fetch('/ia/generar_respuesta/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                remitente: correoActual.remitente,
+                asunto: correoActual.asunto,
+                cuerpo: correoActual.cuerpo
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error al comunicarse con el servidor de IA.');
+                return;
+            }
+            if (data.respuesta) {
+                document.getElementById('respuestaIASection').style.display = 'block';
+                document.getElementById('respuestaIA').value = data.respuesta;
+            } else {
+                alert('No se pudo generar una respuesta automática. Intenta nuevamente.');
+            }
+        })
+        .catch(() => {
+            alert('Error al comunicarse con el servidor de IA.');
+        });
+    }
+};
+
+document.getElementById('enviarRespuestaIA').onclick = function() {
+    if (correoActual) {
+        const respuesta = document.getElementById('respuestaIA').value;
+        fetch('/ia/enviar_respuesta/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                remitente: correoActual.remitente,
+                asunto: correoActual.asunto,
+                cuerpo: correoActual.cuerpo,
+                respuesta: respuesta
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Respuesta enviada correctamente');
+                document.getElementById('respuestaIASection').style.display = 'none';
+            }
+        });
+    }
+};
+
+document.getElementById('actualizar-correos').onclick = function() {
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Accept': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        let tbody = document.getElementById('tabla-correos');
+        tbody.innerHTML = '';
+        if (data.correos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay correos recibidos.</td></tr>';
+        } else {
+            data.correos.forEach(correo => {
+                tbody.innerHTML += `<tr>
+                    <td>${correo.remitente}</td>
+                    <td>${correo.asunto}</td>
+                    <td>${correo.fecha.slice(0,10)}</td>
+                    <td>${correo.fecha.slice(11,16)}</td>
+                    <td>
+                        <button class="btn btn-outline-info btn-sm ver-correo" 
+                                data-id="${correo.id}" 
+                                data-remitente="${correo.remitente}" 
+                                data-asunto="${correo.asunto}" 
+                                data-cuerpo="${correo.cuerpo.replace(/"/g, '&quot;')}" 
+                                data-fecha="${correo.fecha.slice(0,10)}" 
+                                data-hora="${correo.fecha.slice(11,16)}">
+                            <i class="fas fa-eye"></i> Ver
+                        </button>
+                    </td>
+                </tr>`;
+            });
+        }
+        asignarEventosModal();
+    });
+};
+</script>
+{% endblock %} 

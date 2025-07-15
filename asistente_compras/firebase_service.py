@@ -4,6 +4,7 @@ from .models import Product, ShoppingList, ShoppingListItem
 from firebase_config import firebase
 import json
 from datetime import datetime
+from django.conf import settings
 
 
 class FirebaseService:
@@ -11,7 +12,9 @@ class FirebaseService:
     
     @staticmethod
     def sync_product_to_firebase(product):
-        """Sincroniza un producto de Django a Firebase"""
+        if settings.DEBUG:
+            print("⚠️ Sincronización con Firebase deshabilitada en modo desarrollo (DEBUG=True)")
+            return False
         try:
             product_data = {
                 'id': product.id,
@@ -40,6 +43,9 @@ class FirebaseService:
         Sincroniza una lista de compras de Django a Firebase.
         Incluye los ítems anidados.
         """
+        if settings.DEBUG:
+            print("⚠️ Sincronización de listas de compras con Firebase deshabilitada en modo desarrollo (DEBUG=True)")
+            return False
         try:
             # Obtener items de la lista
             items = []
@@ -76,6 +82,9 @@ class FirebaseService:
     
     @staticmethod
     def get_products_from_firebase():
+        if settings.DEBUG:
+            print("⚠️ Lectura de productos desde Firebase deshabilitada en modo desarrollo (DEBUG=True)")
+            return []
         """Obtiene productos desde Firebase"""
         try:
             products_ref = firebase.get_collection('products')
@@ -87,6 +96,9 @@ class FirebaseService:
     
     @staticmethod
     def get_shopping_lists_from_firebase():
+        if settings.DEBUG:
+            print("⚠️ Lectura de listas desde Firebase deshabilitada en modo desarrollo (DEBUG=True)")
+            return []
         """Obtiene listas de compras desde Firebase"""
         try:
             lists_ref = firebase.get_collection('shopping_lists')
@@ -98,6 +110,9 @@ class FirebaseService:
     
     @staticmethod
     def sync_all_products():
+        if settings.DEBUG:
+            print("⚠️ Sincronización masiva con Firebase deshabilitada en modo desarrollo (DEBUG=True)")
+            return 0, 0
         """Sincroniza todos los productos de Django a Firebase"""
         products = Product.objects.all()
         success_count = 0
@@ -108,6 +123,9 @@ class FirebaseService:
     
     @staticmethod
     def sync_all_shopping_lists():
+        if settings.DEBUG:
+            print("⚠️ Sincronización masiva de listas con Firebase deshabilitada en modo desarrollo (DEBUG=True)")
+            return 0, 0
         """Sincroniza todas las listas de compras de Django a Firebase"""
         shopping_lists = ShoppingList.objects.all()
         success_count = 0
@@ -122,6 +140,9 @@ class FirebaseAnalytics:
     
     @staticmethod
     def log_user_action(user_id, action, data=None):
+        if settings.DEBUG:
+            print("⚠️ Analytics de Firebase deshabilitado en modo desarrollo (DEBUG=True)")
+            return False
         """Registra una acción del usuario en Firebase"""
         try:
             log_data = {

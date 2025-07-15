@@ -170,3 +170,27 @@ class ShoppingListItem(models.Model):
         if self.suggested_product:
             return self.suggested_product.price * self.quantity_requested
         return 0
+
+
+class Pedido(models.Model):
+    """
+    Modelo para almacenar pedidos detectados por correo electrónico.
+    """
+    remitente = models.CharField(max_length=300, verbose_name="Remitente del correo")
+    asunto = models.CharField(max_length=300, verbose_name="Asunto del correo")
+    cuerpo = models.TextField(verbose_name="Cuerpo del correo")
+    fecha_recepcion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de recepción")
+    ESTADO_CHOICES = [
+        ('nuevo', 'Nuevo'),
+        ('procesado', 'Procesado'),
+        ('ignorado', 'Ignorado'),
+    ]
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='nuevo', verbose_name="Estado del pedido")
+
+    class Meta:
+        verbose_name = "Pedido"
+        verbose_name_plural = "Pedidos"
+        ordering = ['-fecha_recepcion']
+
+    def __str__(self):
+        return f"Pedido de {self.remitente} - {self.asunto[:30]}..."

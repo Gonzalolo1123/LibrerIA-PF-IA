@@ -11,27 +11,23 @@ class FirebaseConfig:
         self.db = None
         self.auth = None
         self.storage = None
-        self._initialize_firebase()
+        if not settings.DEBUG:
+            self._initialize_firebase()
+        else:
+            print("⚠️ Firebase deshabilitado en modo desarrollo (DEBUG=True)")
     
     def _initialize_firebase(self):
         """Inicializa Firebase Admin SDK"""
         try:
-            # Verificar si ya está inicializado
             if not firebase_admin._apps:
-                # Intentar usar archivo JSON directamente
                 json_file_path = os.path.join(os.path.dirname(__file__), 'proyecto1-d6fb7-firebase-adminsdk-bz4ej-2bbed03ae6.json')
-                
                 if os.path.exists(json_file_path):
-                    # Usar archivo JSON directamente
                     cred = credentials.Certificate(json_file_path)
                     print(f"✅ Usando archivo JSON: {json_file_path}")
                 else:
-                    # Usar variables de entorno para credenciales
                     private_key = os.getenv('FIREBASE_PRIVATE_KEY', '')
                     if private_key:
-                        # Limpiar la clave privada
                         private_key = private_key.replace('\\n', '\n').replace('"', '')
-                    
                     cred = credentials.Certificate({
                         "type": "service_account",
                         "project_id": os.getenv('FIREBASE_PROJECT_ID'),
@@ -45,77 +41,83 @@ class FirebaseConfig:
                         "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
                     })
                     print("✅ Usando variables de entorno")
-                
                 firebase_admin.initialize_app(cred, {'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET')})
                 print("✅ Firebase inicializado correctamente")
-            
-            # Inicializar servicios
             self.db = firestore.client()
             self.auth = auth
             self.storage = storage.bucket()
-            
         except Exception as e:
             print(f"❌ Error inicializando Firebase: {e}")
             print("💡 Asegúrate de que el archivo JSON de credenciales esté en la raíz del proyecto")
     
     def get_collection(self, collection_name):
-        """Obtiene una colección de Firestore"""
+        if settings.DEBUG:
+            print("⚠️ Firebase deshabilitado en modo desarrollo (DEBUG=True)")
+            return None
         if self.db is None:
             print("❌ Firebase no está inicializado")
             return None
         return self.db.collection(collection_name)
     
     def add_document(self, collection_name, data, doc_id=None):
-        """Agrega un documento a Firestore"""
+        if settings.DEBUG:
+            print("⚠️ Firebase deshabilitado en modo desarrollo (DEBUG=True)")
+            return False
         collection = self.get_collection(collection_name)
         if collection is None:
             return False
         try:
             if doc_id:
                 result = collection.document(doc_id).set(data)
-                print(f"✅ Firestore: Documento \'{doc_id}\' en colección \'{collection_name}\' agregado/actualizado.")
+                print(f"✅ Firestore: Documento '{doc_id}' en colección '{collection_name}' agregado/actualizado.")
                 return result
             else:
                 update_time, doc_ref = collection.add(data)
-                print(f"✅ Firestore: Documento \'{doc_ref.id}\' en colección \'{collection_name}\' agregado.")
+                print(f"✅ Firestore: Documento '{doc_ref.id}' en colección '{collection_name}' agregado.")
                 return update_time, doc_ref
         except Exception as e:
             print(f"❌ Error agregando documento a Firestore: {e}")
             return False
     
     def get_document(self, collection_name, doc_id):
-        """Obtiene un documento de Firestore"""
+        if settings.DEBUG:
+            print("⚠️ Firebase deshabilitado en modo desarrollo (DEBUG=True)")
+            return None
         collection = self.get_collection(collection_name)
         if collection is None:
             return None
         doc = collection.document(doc_id).get()
         if doc.exists:
-            print(f"✅ Firestore: Documento \'{doc_id}\' en colección \'{collection_name}\' obtenido.")
+            print(f"✅ Firestore: Documento '{doc_id}' en colección '{collection_name}' obtenido.")
         else:
-            print(f"ℹ️ Firestore: Documento \'{doc_id}\' no encontrado en colección \'{collection_name}\'.")
+            print(f"ℹ️ Firestore: Documento '{doc_id}' no encontrado en colección '{collection_name}'.")
         return doc
     
     def update_document(self, collection_name, doc_id, data):
-        """Actualiza un documento en Firestore"""
+        if settings.DEBUG:
+            print("⚠️ Firebase deshabilitado en modo desarrollo (DEBUG=True)")
+            return False
         collection = self.get_collection(collection_name)
         if collection is None:
             return False
         try:
             result = collection.document(doc_id).update(data)
-            print(f"✅ Firestore: Documento \'{doc_id}\' en colección \'{collection_name}\' actualizado.")
+            print(f"✅ Firestore: Documento '{doc_id}' en colección '{collection_name}' actualizado.")
             return result
         except Exception as e:
             print(f"❌ Error actualizando documento en Firestore: {e}")
             return False
     
     def delete_document(self, collection_name, doc_id):
-        """Elimina un documento de Firestore"""
+        if settings.DEBUG:
+            print("⚠️ Firebase deshabilitado en modo desarrollo (DEBUG=True)")
+            return False
         collection = self.get_collection(collection_name)
         if collection is None:
             return False
         try:
             collection.document(doc_id).delete()
-            print(f"✅ Firestore: Documento \'{doc_id}\' en colección \'{collection_name}\' eliminado.")
+            print(f"✅ Firestore: Documento '{doc_id}' en colección '{collection_name}' eliminado.")
             return True
         except Exception as e:
             print(f"❌ Error eliminando documento de Firestore: {e}")

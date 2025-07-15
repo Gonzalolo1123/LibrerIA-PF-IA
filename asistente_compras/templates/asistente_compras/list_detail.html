@@ -175,7 +175,7 @@
 
 <!-- Modales para mostrar sugerencias de IA -->
 {% for item in items %}
-    {% if item.ai_suggestions_json %}
+    {% if item.get_ai_suggestions.suggestions %}
         <div class="modal fade" id="suggestionsModal{{ item.id }}" tabindex="-1">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
@@ -188,41 +188,41 @@
                     </div>
                     <div class="modal-body">
                         <div class="ai-suggestions-list">
-                            {% with suggestions=item.get_ai_suggestions %}
-                                {% for suggestion in suggestions.suggestions %}
-                                    <div class="suggestion-card mb-3 p-3 border rounded">
-                                        <div class="row">
-                                            <div class="col-md-8">
-                                                <h6 class="suggestion-title">{{ suggestion.product_name }}</h6>
-                                                <p class="suggestion-description text-muted mb-2">
-                                                    {{ suggestion.description }}
-                                                </p>
-                                                <div class="suggestion-details">
-                                                    <span class="badge bg-secondary me-2">{{ suggestion.brand }}</span>
-                                                    <span class="badge bg-{{ suggestion.quality|quality_badge_color }}">
-                                                        {{ suggestion.quality|title }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4 text-end">
-                                                <div class="suggestion-price">
-                                                    <span class="price-large">${{ suggestion.price|floatformat:0 }}</span>
-                                                    <br>
-                                                    <small class="text-muted">Stock: {{ suggestion.stock }} unidades</small>
-                                                </div>
-                                                <form action="{% url 'asistente_compras:select_suggestion_for_item' shopping_list.id item.id %}" method="post">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="suggestion_index" value="{{ forloop.counter0 }}">
-                                                    <button type="submit" class="btn btn-primary btn-sm mt-2">
-                                                        <i class="fas fa-check me-1"></i>
-                                                        Seleccionar
-                                                    </button>
-                                                </form>
+                            {% for suggestion in item.get_ai_suggestions.suggestions %}
+                                <div class="suggestion-card mb-3 p-3 border rounded">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6 class="suggestion-title">{{ suggestion.product_name }}</h6>
+                                            <p class="suggestion-description text-muted mb-2">
+                                                {{ suggestion.description }}
+                                            </p>
+                                            <div class="suggestion-details">
+                                                <span class="badge bg-secondary me-2">{{ suggestion.brand }}</span>
+                                                <span class="badge bg-{{ suggestion.quality|quality_badge_color }}">
+                                                    {{ suggestion.quality|title }}
+                                                </span>
                                             </div>
                                         </div>
+                                        <div class="col-md-4 text-end">
+                                            <div class="suggestion-price">
+                                                <span class="price-large">${{ suggestion.price|floatformat:0 }}</span>
+                                                <br>
+                                                <small class="text-muted">Stock: {{ suggestion.stock }} unidades</small>
+                                            </div>
+                                            <form action="{% url 'asistente_compras:select_suggestion_for_item' shopping_list.id item.id %}" method="post">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="suggestion_index" value="{{ forloop.counter0 }}">
+                                                <button type="submit" class="btn btn-primary btn-sm mt-2">
+                                                    <i class="fas fa-check me-1"></i>
+                                                    Seleccionar
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
-                                {% endfor %}
-                            {% endwith %}
+                                </div>
+                            {% empty %}
+                                <div class="alert alert-info">No hay sugerencias alternativas disponibles.</div>
+                            {% endfor %}
                         </div>
                     </div>
                     <div class="modal-footer">

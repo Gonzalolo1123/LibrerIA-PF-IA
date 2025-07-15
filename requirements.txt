@@ -1,22 +1,10 @@
-Django==4.2.7
-asgiref==3.8.1
-sqlparse==0.5.3
-tzdata==2025.2
-django-environ==0.11.2
-gunicorn==22.0.0
-#psycopg2-binary==2.9.7
-firebase-admin==6.2.0
-pyrebase4==4.7.1
-reportlab==4.0.4
-
-# IA Integration Dependencies
-langchain==0.1.0
-langchain-community==0.0.10
-faiss-cpu==1.7.4
-sentence-transformers==2.2.2
-numpy==1.24.3
-scikit-learn==1.3.0
-python-dotenv==1.0.0
-huggingface_hub==0.23.0
-requests==2.31.0 
-markdown2
+Django>=4.0
+llama-cpp-python
+django-environ
+firebase-admin
+sentence-transformers
+reportlab
+numpy
+python-dateutil
+# faiss-cpu  # Solo si usas búsqueda vectorial local
+# gunicorn   # Solo para despliegue en producción

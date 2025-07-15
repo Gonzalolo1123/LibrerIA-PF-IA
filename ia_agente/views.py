@@ -1,6 +1,11 @@
 from django.views import View
 from django.shortcuts import render, redirect
+
+from ia_agente.utils import enviar_correo
 from .ai_agent import ai_agent
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 # Create your views here.
 
@@ -54,6 +59,35 @@ class IAQueryView(View):
                     print(f"[DEPURACIÓN][ERROR] Fallo al crear lista o redirigir: {e}")
         return render(request, self.template_name, {
             'consulta': consulta,
-            'productos': productos,
+            'productos': json.dumps(productos, ensure_ascii=False),
             'error': error
         })
+
+@csrf_exempt
+def generar_respuesta(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            cuerpo = data.get('cuerpo', '')
+            print(f"[DEBUG] Cuerpo recibido: {cuerpo}")
+            respuesta = ai_agent.generar_respuesta(cuerpo)
+            print(f"[DEBUG] Respuesta IA: {respuesta}")
+            return JsonResponse({'respuesta': respuesta})
+        except Exception as e:
+            print(f"[ERROR] {e}")
+            return JsonResponse({'respuesta': '', 'error': str(e)})
+    return HttpResponseBadRequest('Método no permitido')
+
+@csrf_exempt
+def enviar_respuesta(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            destinatario = data.get('remitente')
+            asunto = f"Re: {data.get('asunto', '')}"
+            cuerpo = data.get('respuesta', '')
+            enviar_correo(destinatario, asunto, cuerpo)
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return HttpResponseBadRequest('Método no permitido')

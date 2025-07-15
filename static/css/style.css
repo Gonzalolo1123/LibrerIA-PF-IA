@@ -505,3 +505,101 @@ body {
 .bg-info {
     background-color: var(--info-color) !important;
 } 
+
+/* ===== ESTILOS CARRITO DE CONSULTA IA ===== */
+.cart-header-icon {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin-right: 0.5rem;
+}
+
+.cart-table tfoot td {
+    background: #e3f2fd;
+    font-size: 1.1rem;
+    color: #1565c0;
+    border-top: 2px solid #90caf9;
+}
+
+.cart-table .price {
+    font-weight: bold;
+    color: var(--success-color);
+}
+
+.cart-table .badge.bg-info {
+    background: var(--info-color);
+    color: #fff;
+}
+
+.cart-table .badge.bg-primary {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.cart-table .btn {
+    min-width: 32px;
+    margin-right: 2px;
+}
+
+.cart-table .item-row td {
+    vertical-align: middle;
+}
+
+.cart-table .item-row strong {
+    color: var(--dark-color);
+}
+
+.cart-table .item-row:hover {
+    background: #f1f8ff;
+}
+
+.cart-table .fa-edit, .cart-table .fa-trash {
+    font-size: 1.1rem;
+} 
+
+/* Mejoras para los modals del carrito de compras */
+#modalProducto .modal-content, #modalEliminar .modal-content {
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+#modalProducto .modal-header, #modalEliminar .modal-header {
+    background: var(--primary-color);
+    color: #fff;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+#modalProducto .modal-title, #modalEliminar .modal-title {
+    font-weight: 600;
+}
+#modalProducto .btn-primary, #modalEliminar .btn-danger {
+    min-width: 100px;
+}
+
+/* Botones CRUD del carrito */
+.cart-table .btn-outline-secondary, .cart-table .btn-outline-danger {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 1.1rem;
+}
+.cart-table .btn-outline-secondary:hover {
+    background: var(--primary-color);
+    color: #fff;
+}
+.cart-table .btn-outline-danger:hover {
+    background: var(--danger-color);
+    color: #fff;
+}
+
+/* Responsividad para la tabla del carrito */
+@media (max-width: 768px) {
+    .cart-table th, .cart-table td {
+        font-size: 0.95rem;
+        padding: 0.4rem 0.3rem;
+    }
+    .cart-header-icon {
+        font-size: 1.3rem;
+    }
+} 

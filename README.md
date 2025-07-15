@@ -1,133 +1,73 @@
-# 📚 LibreriaIA: Asistente de Compras de Librería con IA
+# LibrerIA
 
-## 🎯 Objetivo del Proyecto
+LibrerIA es una plataforma inteligente para la gestión de pedidos, consultas y cotizaciones de productos en una librería, automatizando la atención de correos electrónicos y la generación de respuestas usando IA local.
 
-[cite_start]`LibreriaIA` es un Producto Mínimo Viable (MVP) diseñado para optimizar el proceso de compra de útiles escolares y de oficina, especialmente durante picos de demanda que saturan las librerías físicas. La aplicación permite a los usuarios introducir listas de útiles escolares. [cite_start]Utilizando una funcionalidad simulada de Inteligencia Artificial, la aplicación sugiere productos del catálogo de una librería, ofreciendo comparativas de precios y categorías de calidad (económico, intermedio, calidad).
+## Tecnologías principales
+- **Django**: Framework web principal (backend y frontend).
+- **llama-cpp-python**: Motor de IA local basado en modelos Llama (formato GGUF, sin depender de la nube).
+- **Gmail IMAP/SMTP**: Integración para leer y responder correos electrónicos automáticamente.
+- **Python 3.10+**
+- **Bootstrap**: Para la interfaz web.
 
-[cite_start]Este proyecto cumple con los requisitos de un MVP funcional que integra IA como herramienta principal de apoyo, cuenta con un frontend con interfaz de usuario, una API para comunicación entre frontend y backend, y un backend que utiliza Firebase como base de datos (aunque en este MVP inicial de Django, la base de datos es SQLite para el desarrollo, con el objetivo de integración futura con Firebase para persistencia y escalabilidad).
+## ¿Qué hace LibrerIA?
+- Lee automáticamente los correos recibidos en la cuenta configurada (Gmail).
+- Filtra y muestra solo los correos que sean consultas, cotizaciones, pedidos o preguntas de precios.
+- Permite ver el detalle de cada correo y responder con un solo clic usando IA local.
+- La respuesta generada es formal, en español, personalizada y centrada en los productos solicitados, precios, stock y condiciones.
+- Permite editar la respuesta antes de enviarla.
+- Elimina correos del sistema para mantener la bandeja limpia.
+- Gestiona inventario y listas de productos sugeridos por IA.
 
-## 💡 Problema que Resuelve
+## Instalación y configuración rápida
+1. **Clona el repositorio y entra al directorio:**
+   ```bash
+   git clone ...
+   cd librerIA-main
+   ```
+2. **Crea y activa un entorno virtual:**
+   ```bash
+   python -m venv env
+   source env/bin/activate  # Linux/Mac
+   .\env\Scripts\activate  # Windows
+   ```
+3. **Instala las dependencias:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **Configura tu cuenta de Gmail:**
+   - Edita `email_config.py` con tus credenciales de Gmail (usa una contraseña de aplicación).
+5. **Descarga un modelo Llama en formato GGUF:**
+   - Descarga desde HuggingFace (por ejemplo, TheBloke/Llama-2-7B-GGUF) y colócalo en la carpeta `models/`.
+6. **Configura variables de entorno si usas `django-environ` (opcional).**
+7. **Ejecuta las migraciones y el servidor:**
+   ```bash
+   python manage.py migrate
+   python manage.py runserver
+   ```
 
-Durante el inicio del año escolar, las listas de útiles estudiantiles generan una demanda masiva que a menudo desborda la capacidad de las librerías, llevando a largas filas y frustración para los clientes. [cite_start]`LibreriaIA` agiliza este proceso al permitir a los usuarios obtener recomendaciones de productos y precios directamente desde una aplicación, cotejando sus listas con el catálogo de la librería y ofreciendo diversas opciones para ajustarse a sus necesidades y presupuestos.
+## Uso del sistema
+- Accede a la web y entra a la sección "Correos Recibidos".
+- Solo verás correos que sean consultas, cotizaciones, pedidos o preguntas de precios.
+- Haz clic en un correo para ver el detalle y pulsa "Responder con IA" para generar una respuesta automática.
+- Puedes editar la respuesta antes de enviarla.
+- El sistema también permite gestionar inventario y listas de productos sugeridos por IA.
 
-## ✨ Características (MVP)
+## ¿Cómo funciona la respuesta automática?
+- El cuerpo del correo se limpia y optimiza automáticamente.
+- Se extraen los productos y datos relevantes.
+- Se genera un prompt detallado para el modelo Llama local, que responde en español, de forma formal y centrada en los productos y condiciones solicitadas.
+- La respuesta es revisable y editable antes de enviarse.
 
-* **Gestión de Listas de Compras:** Los usuarios pueden crear y gestionar múltiples listas de útiles.
-* **Entrada de Ítems de Lista:** Interfaz para que los usuarios ingresen los artículos que necesitan.
-* [cite_start]**Sugerencias de Productos con IA (Simuladas):** La aplicación (a través de lógica de backend) "sugiere" productos del catálogo que coinciden con los ítems de la lista del usuario, clasificándolos por calidad y precio.
-* [cite_start]**Frontend Básico:** Interfaz de usuario con al menos dos vistas o pantallas funcionales para la gestión de listas y detalles.
-* [cite_start]**Backend con Django:** Gestión de la lógica de la aplicación y la persistencia de datos.
-* [cite_start]**Integración con Firebase (Planeado):** Aunque inicialmente usa SQLite, el diseño del modelo está preparado para la integración futura con Firestore o Realtime Database de Firebase para almacenar datos de usuarios o inputs.
-* [cite_start]**API REST (Simulada):** El backend Django expone rutas que actúan como endpoints REST para la comunicación con el frontend.
+## Personalización y mejoras
+- Puedes ajustar las palabras clave para filtrar correos en `ia_agente/utils.py`.
+- Puedes cambiar el modelo Llama por otro compatible en la carpeta `models/`.
+- El sistema es extensible para otros proveedores de correo o IA local.
 
-## 🛠️ Tecnologías Utilizadas
+## Requisitos
+- Python 3.10+
+- Cuenta de Gmail con IMAP y SMTP habilitados
+- Modelo Llama en formato GGUF (recomendado: 7B o 13B, versión cuantizada para CPU)
+- 8GB de RAM mínimo (recomendado 16GB para modelos grandes)
 
-* **Backend:**
-    * Python 3.x
-    * Django (Framework Web)
-    * Django REST Framework (para la API, aunque no totalmente implementado en el MVP inicial)
-    * SQLite (Base de datos por defecto para desarrollo)
-    * [cite_start]Firebase (Objetivo futuro para base de datos y/o hosting) 
-* **Frontend:**
-    * HTML5
-    * CSS3
-    * [cite_start](Se recomienda React, Angular u otros para una implementación completa, pero este MVP usa HTML/CSS puros) 
-* **Inteligencia Artificial:**
-    * [cite_start]Conceptualización y campos de datos para futuras integraciones de IA (ej. procesamiento de lenguaje natural para listas, motores de recomendación).
-    * [cite_start]Se pueden usar asistentes de código con IA como GitHub Copilot, ChatGPT, Gemini, etc., durante el desarrollo.
-
-## 🚀 Estructura del Proyecto
-
-```
-LibreriaIA/
-├── LibreriaIA/                 # Configuración principal del proyecto
-│   ├── settings.py            # Configuraciones de Django
-│   ├── urls.py                # URLs principales
-│   └── wsgi.py                # Configuración WSGI
-├── asistente_compras/         # Aplicación principal
-│   ├── models.py              # Modelos de datos
-│   ├── views.py               # Vistas y lógica de negocio
-│   ├── urls.py                # URLs de la aplicación
-│   ├── admin.py               # Configuración del admin
-│   ├── templates/             # Plantillas HTML
-│   │   └── asistente_compras/
-│   │       ├── base.html      # Plantilla base
-│   │       ├── home.html      # Página de inicio
-│   │       ├── notes.html     # Formulario de creación
-│   │       └── list_detail.html # Detalles de lista
-│   ├── templatetags/          # Filtros personalizados
-│   │   └── custom_filters.py
-│   └── management/            # Comandos personalizados
-│       └── commands/
-│           └── populate_products.py
-├── static/                    # Archivos estáticos
-│   └── css/
-│       └── style.css          # Estilos personalizados
-├── manage.py                  # Script de gestión de Django
-├── populate_db.py             # Script de población (legacy)
-└── README.md                  # Este archivo
-```
-
-## 🔧 Comandos Útiles
-
-```bash
-# Crear migraciones
-python manage.py makemigrations
-
-# Aplicar migraciones
-python manage.py migrate
-
-# Poblar base de datos
-python manage.py populate_products
-
-# Crear superusuario
-python manage.py createsuperuser
-
-# Ejecutar servidor de desarrollo
-python manage.py runserver
-
-# Ejecutar tests (cuando se implementen)
-python manage.py test
-```
-
-## 🎨 Tecnologías Utilizadas
-
-- **Backend**: Django 5.2.3
-- **Base de Datos**: SQLite (desarrollo) / PostgreSQL (producción)
-- **Frontend**: HTML5, CSS3, JavaScript
-- **Framework CSS**: Bootstrap 5.3.0
-- **Iconos**: Font Awesome 6.0.0
-- **Lenguaje**: Python 3.13
-
-## 🔮 Próximas Mejoras
-
-- [ ] Integración con modelo de IA real (OpenAI, Google AI, etc.)
-- [ ] Sistema de autenticación de usuarios
-- [ ] API REST para integración con aplicaciones móviles
-- [ ] Sistema de notificaciones
-- [ ] Exportación de listas a PDF/Excel
-- [ ] Comparación de precios entre diferentes librerías
-- [ ] Sistema de cupones y descuentos
-- [ ] Integración con sistemas de pago
-
-## 🤝 Contribución
-
-Para contribuir al proyecto:
-
-1. Fork el repositorio
-2. Crea una rama para tu feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit tus cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crea un Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
-
-## 📞 Contacto
-
-Para preguntas o soporte, contacta al equipo de desarrollo.
-
----
-
-**Desarrollado con ❤️ y Django**
+## Licencia
+MIT

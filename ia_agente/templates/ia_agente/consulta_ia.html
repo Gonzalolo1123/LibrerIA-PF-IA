@@ -1,10 +1,12 @@
 {% extends 'asistente_compras/base.html' %}
+{% load static %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-10">
         <div class="card shadow-sm mb-4" style="border-radius: var(--border-radius); background: var(--light-color); min-height: 420px;">
-            <div class="card-header" style="background: var(--primary-color); border-radius: var(--border-radius) var(--border-radius) 0 0;">
-                <h3 class="mb-0" style="color: #222;"><i class="fas fa-comments me-2"></i>Consulta Inteligente a la Librería</h3>
+            <div class="card-header d-flex align-items-center" style="background: var(--primary-color); border-radius: var(--border-radius) var(--border-radius) 0 0;">
+                <span class="cart-header-icon"><i class="fas fa-shopping-cart"></i></span>
+                <h3 class="mb-0" style="color: #222;">Carrito de Compras Inteligente</h3>
             </div>
             <div class="card-body">
                 <form method="post">
@@ -22,47 +24,40 @@
                 {% if error %}
                     <hr>
                     <div class="alert alert-danger mt-4">{{ error }}</div>
-                {% elif productos %}
-                    <hr>
-                    <div class="ai-info alert mt-4 fade-in" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); border: 1px solid #90caf9; color: #1565c0;">
-                        <h5 class="alert-heading"><i class="fas fa-robot me-2"></i>Respuesta del Agente</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th>Marca</th>
-                                        <th>Calidad</th>
-                                        <th>Precio</th>
-                                        <th>Stock</th>
-                                        <th>Cantidad</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for p in productos %}
-                                    <tr>
-                                        <td><strong>{{ p.producto }}</strong></td>
-                                        <td>{{ p.marca }}</td>
-                                        <td><span class="badge bg-info">{{ p.calidad }}</span></td>
-                                        <td>${{ p.precio }}</td>
-                                        <td>{{ p.stock }}</td>
-                                        <td><span class="badge bg-primary">{{ p.cantidad_sugerida }}</span></td>
-                                        <td>
-                                            <button class="btn btn-outline-secondary btn-sm" onclick="modificarProducto({{ forloop.counter0 }})"><i class="fas fa-edit"></i></button>
-                                            <button class="btn btn-outline-danger btn-sm" onclick="eliminarProducto({{ forloop.counter0 }})"><i class="fas fa-trash"></i></button>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="mt-3">
-                            <button class="btn btn-success btn-sm" onclick="agregarProducto()"><i class="fas fa-plus"></i> Agregar producto</button>
-                        </div>
-                        <div id="acciones-productos" class="mt-2"></div>
-                    </div>
                 {% endif %}
+                <hr>
+                <div class="ai-info alert mt-4 fade-in" style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); border: 1px solid #90caf9; color: #1565c0;">
+                    <h5 class="alert-heading"><i class="fas fa-shopping-basket me-2"></i>Productos sugeridos por IA</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 cart-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Producto</th>
+                                    <th>Marca</th>
+                                    <th>Calidad</th>
+                                    <th>Precio</th>
+                                    <th>Stock</th>
+                                    <th>Cantidad</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- La tabla se llenará dinámicamente con JS -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" class="text-end fw-bold">Total estimado:</td>
+                                    <td colspan="4" class="fw-bold" id="totalEstimado">$0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-success btn-sm" onclick="agregarProducto()"><i class="fas fa-plus"></i> Agregar producto</button>
+                    </div>
+                    <div id="acciones-productos" class="mt-2"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -145,118 +140,5 @@
 </div>
 
 {% block extra_js %}
-<script>
-// Obtener la lista de productos desde Django para JS
-var productos = [];
-{% if productos %}
-    productos = JSON.parse('{{ productos|safe|escapejs }}');
-{% endif %}
-
-let productoAEliminar = null;
-
-function renderTablaProductos() {
-    const tbody = document.querySelector('.table tbody');
-    tbody.innerHTML = '';
-    productos.forEach((p, i) => {
-        tbody.innerHTML += `
-        <tr>
-            <td><strong>${p.producto}</strong></td>
-            <td>${p.marca}</td>
-            <td><span class="badge bg-info">${p.calidad}</span></td>
-            <td>$${p.precio}</td>
-            <td>${p.stock}</td>
-            <td><span class="badge bg-primary">${p.cantidad_sugerida}</span></td>
-            <td>
-                <button class="btn btn-outline-secondary btn-sm" onclick="modificarProducto(${i})"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-outline-danger btn-sm" onclick="eliminarProducto(${i})"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>`;
-    });
-}
-
-function showToast(mensaje, tipo = 'primary') {
-    const toast = new bootstrap.Toast(document.getElementById('toastMensaje'));
-    const toastDiv = document.getElementById('toastMensaje');
-    const toastTexto = document.getElementById('toastMensajeTexto');
-    toastDiv.className = `toast align-items-center text-bg-${tipo} border-0`;
-    toastTexto.textContent = mensaje;
-    toast.show();
-}
-
-function agregarProducto() {
-    document.getElementById('modalProductoLabel').textContent = 'Agregar producto';
-    document.getElementById('formProducto').reset();
-    document.getElementById('inputIndex').value = '';
-    var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
-    modal.show();
-}
-
-function modificarProducto(index) {
-    const p = productos[index];
-    document.getElementById('modalProductoLabel').textContent = 'Modificar producto';
-    document.getElementById('inputProducto').value = p.producto;
-    document.getElementById('inputMarca').value = p.marca;
-    document.getElementById('inputCalidad').value = p.calidad;
-    document.getElementById('inputPrecio').value = p.precio;
-    document.getElementById('inputStock').value = p.stock;
-    document.getElementById('inputCantidad').value = p.cantidad_sugerida;
-    document.getElementById('inputIndex').value = index;
-    var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
-    modal.show();
-}
-
-function eliminarProducto(index) {
-    productoAEliminar = index;
-    const p = productos[index];
-    document.getElementById('textoEliminar').textContent = `¿Estás seguro de que quieres eliminar el producto "${p.producto}"?`;
-    var modal = new bootstrap.Modal(document.getElementById('modalEliminar'));
-    modal.show();
-}
-
-document.getElementById('btnGuardarProducto').onclick = function() {
-    const nombre = document.getElementById('inputProducto').value.trim();
-    const marca = document.getElementById('inputMarca').value.trim();
-    const calidad = document.getElementById('inputCalidad').value.trim();
-    const precio = parseInt(document.getElementById('inputPrecio').value);
-    const stock = parseInt(document.getElementById('inputStock').value);
-    const cantidad = parseInt(document.getElementById('inputCantidad').value);
-    const index = document.getElementById('inputIndex').value;
-    if (!nombre || !marca || !calidad || isNaN(precio) || isNaN(stock) || isNaN(cantidad)) {
-        showToast('Por favor completa todos los campos correctamente.', 'danger');
-        return;
-    }
-    const nuevoProducto = {
-        producto: nombre,
-        marca: marca,
-        calidad: calidad,
-        precio: precio,
-        stock: stock,
-        cantidad_sugerida: cantidad
-    };
-    if (index === '') {
-        productos.push(nuevoProducto);
-        showToast('Producto agregado exitosamente.', 'success');
-    } else {
-        productos[index] = nuevoProducto;
-        showToast('Producto modificado exitosamente.', 'info');
-    }
-    renderTablaProductos();
-    bootstrap.Modal.getInstance(document.getElementById('modalProducto')).hide();
-};
-
-document.getElementById('btnConfirmarEliminar').onclick = function() {
-    if (productoAEliminar !== null) {
-        productos.splice(productoAEliminar, 1);
-        renderTablaProductos();
-        showToast('Producto eliminado.', 'warning');
-        productoAEliminar = null;
-        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
-    }
-};
-
-// Render inicial si hay productos
-if (productos.length > 0) {
-    renderTablaProductos();
-}
-</script>
+<script src="{% static 'js/consulta_ia.js' %}"></script>
 {% endblock %} 

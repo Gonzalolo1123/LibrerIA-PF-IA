@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from .models import Product, ShoppingList, ShoppingListItem
@@ -16,6 +16,8 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from io import BytesIO
 from datetime import datetime
+from ia_agente.ai_agent import ai_agent # Importar el agente de IA real
+from ia_agente.utils import leer_correos_gmail, marcar_correo_eliminado
 
 
 def home_view(request):
@@ -38,7 +40,7 @@ def home_view(request):
 def create_shopping_list(request):
     """
     Vista para crear una nueva lista de compras.
-    Procesa el formulario y simula la lógica de IA para sugerir productos.
+    Procesa el formulario y utiliza el agente de IA real para sugerir productos.
     Permite a usuarios autenticados y no autenticados crear listas.
     """
     if request.method == 'POST':
@@ -68,7 +70,7 @@ def create_shopping_list(request):
         # Procesar los ítems del texto ingresado
         items = _parse_items_from_text(items_text)
         
-        # Para cada ítem, crear un ShoppingListItem y simular sugerencias de IA
+        # Para cada ítem, crear un ShoppingListItem y obtener sugerencias del agente de IA
         for item_name, quantity in items:
             shopping_item = ShoppingListItem(
                 shopping_list=shopping_list,
@@ -76,13 +78,27 @@ def create_shopping_list(request):
                 quantity_requested=quantity
             )
             
-            # Simular sugerencias de IA con filtro de calidad
-            ai_suggestions = _simulate_ai_suggestions(item_name, quantity, quality_preference)
-            shopping_item.set_ai_suggestions(ai_suggestions)
+            # Obtener sugerencias del agente de IA real
+            # La query puede ser el item_name_raw, la cantidad, y la preferencia de calidad
+            ai_response = ai_agent.process_query(f"{item_name} (cantidad: {quantity}, calidad: {quality_preference})")
+            
+            ai_suggestions_data = {"suggestions": [], "primary_suggestion": None}
+
+            if not ai_response["error"]:
+                suggestions_list = ai_response["productos"]
+                # Aquí podrías aplicar el filtro de calidad si el agente IA no lo hace internamente
+                # o si necesitas una lógica de filtrado adicional en el backend
+                
+                # Asignar la primera sugerencia como primaria si existe
+                if suggestions_list:
+                    ai_suggestions_data["primary_suggestion"] = suggestions_list[0]
+                ai_suggestions_data["suggestions"] = suggestions_list
+
+            shopping_item.set_ai_suggestions(ai_suggestions_data)
             
             # Si hay una sugerencia principal, asignarla
-            if ai_suggestions.get('primary_suggestion'):
-                primary_product = _get_or_create_product(ai_suggestions['primary_suggestion'])
+            if ai_suggestions_data.get('primary_suggestion'):
+                primary_product = _get_or_create_product(ai_suggestions_data['primary_suggestion'])
                 shopping_item.suggested_product = primary_product
             
             # Guardar el item una sola vez después de asignar todo
@@ -127,13 +143,25 @@ def create_standard_list(request, list_type):
             quantity_requested=quantity
         )
         
-        # Simular sugerencias de IA con filtro de calidad
-        ai_suggestions = _simulate_ai_suggestions(item_name, quantity, quality_preference)
-        shopping_item.set_ai_suggestions(ai_suggestions)
+        # Obtener sugerencias del agente de IA real
+        ai_response = ai_agent.process_query(f"{item_name} (cantidad: {quantity}, calidad: {quality_preference})")
+        
+        ai_suggestions_data = {"suggestions": [], "primary_suggestion": None}
+
+        if not ai_response["error"]:
+            suggestions_list = ai_response["productos"]
+            # Aquí podrías aplicar el filtro de calidad si el agente IA no lo hace internamente
+            # o si necesitas una lógica de filtrado adicional en el backend
+            
+            if suggestions_list:
+                ai_suggestions_data["primary_suggestion"] = suggestions_list[0]
+            ai_suggestions_data["suggestions"] = suggestions_list
+
+        shopping_item.set_ai_suggestions(ai_suggestions_data)
         
         # Si hay una sugerencia principal, asignarla
-        if ai_suggestions.get('primary_suggestion'):
-            primary_product = _get_or_create_product(ai_suggestions['primary_suggestion'])
+        if ai_suggestions_data.get('primary_suggestion'):
+            primary_product = _get_or_create_product(ai_suggestions_data['primary_suggestion'])
             shopping_item.suggested_product = primary_product
         
         shopping_item.save()
@@ -183,8 +211,7 @@ def select_suggestion_for_item(request, list_id, item_id):
             # Para usuarios anónimos, verificar que la lista exista y no pertenezca a un usuario autenticado
             shopping_list = get_object_or_404(ShoppingList, id=list_id)
             if shopping_list.user is not None:
-                messages.error(request, "No tienes permiso para modificar esta lista.")
-                return redirect('asistente_compras:list_detail', list_id=list_id)
+                return JsonResponse({'status': 'error', 'message': 'No tienes permiso para modificar esta lista.'}, status=403)
 
         # Obtener el ítem de la lista de compras
         shopping_item = get_object_or_404(ShoppingListItem, id=item_id, shopping_list=shopping_list)
@@ -193,16 +220,14 @@ def select_suggestion_for_item(request, list_id, item_id):
         selected_index = request.POST.get('suggestion_index')
         
         if not selected_index:
-            messages.error(request, "No se seleccionó ninguna sugerencia.")
-            return redirect('asistente_compras:list_detail', list_id=list_id)
+            return JsonResponse({'status': 'error', 'message': 'No se seleccionó ninguna sugerencia.'}, status=400)
 
         try:
             selected_index = int(selected_index)
             ai_suggestions = shopping_item.get_ai_suggestions() # Ya retorna un diccionario
             
             if 'suggestions' not in ai_suggestions or not ai_suggestions['suggestions']:
-                messages.error(request, "No hay sugerencias de IA disponibles para este ítem.")
-                return redirect('asistente_compras:list_detail', list_id=list_id)
+                return JsonResponse({'status': 'error', 'message': 'No hay sugerencias de IA disponibles para este ítem.'}, status=404)
 
             if 0 <= selected_index < len(ai_suggestions['suggestions']):
                 selected_suggestion_data = ai_suggestions['suggestions'][selected_index]
@@ -212,21 +237,37 @@ def select_suggestion_for_item(request, list_id, item_id):
                 
                 shopping_item.suggested_product = primary_product
                 shopping_item.save()
-                messages.success(request, f"Producto sugerido para \'{shopping_item.item_name_raw}\' actualizado correctamente.")
-            else:
-                messages.error(request, "Índice de sugerencia no válido.")
-        except ValueError:
-            messages.error(request, "Índice de sugerencia no válido.")
-        except Exception as e:
-            messages.error(request, f"Error al procesar la sugerencia: {e}")
+                
+                # Recalcular el costo total de la lista
+                shopping_list.refresh_from_db()
+                total_estimated_cost = shopping_list.get_total_estimated_cost()
+                total_items = shopping_list.get_total_items()
 
-    return redirect('asistente_compras:list_detail', list_id=list_id)
+                return JsonResponse({
+                    'status': 'success',
+                    'message': f"Producto sugerido para '{shopping_item.item_name_raw}' actualizado correctamente.",
+                    'item_id': shopping_item.id,
+                    'suggested_product_name': primary_product.name,
+                    'suggested_product_brand': primary_product.brand,
+                    'suggested_product_price': str(primary_product.price), # Convertir Decimal a string para JSON
+                    'item_total_cost': str(shopping_item.get_estimated_cost()),
+                    'list_total_cost': str(total_estimated_cost),
+                    'total_items': total_items,
+                    'quality': primary_product.quality_category
+                })
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Índice de sugerencia no válido.'}, status=400)
+        except ValueError:
+            return JsonResponse({'status': 'error', 'message': 'Índice de sugerencia no válido.'}, status=400)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Error al procesar la sugerencia: {e}'}, status=500)
+
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
 
 
 def _parse_items_from_text(text):
     """
     Función auxiliar para parsear el texto de ítems y extraer nombres y cantidades.
-    Simula el procesamiento que haría la IA para entender la entrada del usuario.
     """
     items = []
     lines = text.strip().split('\n')
@@ -248,293 +289,210 @@ def _parse_items_from_text(text):
             item_name = line
         
         items.append((item_name, quantity))
-    
     return items
-
-
-def _simulate_ai_suggestions(item_name, quantity, quality_preference='cualquiera'):
-    """
-    Simula las sugerencias de IA para un ítem específico.
-    Ahora incluye filtro de calidad según la preferencia del usuario.
-    """
-    item_lower = item_name.lower()
-    suggestions = {
-        'confidence_score': 0.85,
-        'suggestions': []
-    }
-    
-    # Función auxiliar para filtrar sugerencias por calidad
-    def filter_by_quality(suggestions_list, quality_pref):
-        if quality_pref == 'cualquiera':
-            return suggestions_list
-        elif quality_pref == 'economico':
-            return [s for s in suggestions_list if s['quality'] == 'economico']
-        elif quality_pref == 'intermedio':
-            return [s for s in suggestions_list if s['quality'] == 'intermedio']
-        elif quality_pref == 'calidad':
-            return [s for s in suggestions_list if s['quality'] == 'calidad']
-        return suggestions_list
-    
-    if 'cuaderno' in item_lower:
-        all_suggestions = [
-            {
-                'product_name': 'Cuaderno A4 Básico 100 hojas',
-                'brand': 'Genérica',
-                'price': 800.00,
-                'quality': 'economico',
-                'stock': 50,
-                'description': 'Cuaderno básico para uso escolar'
-            },
-            {
-                'product_name': 'Cuaderno A4 Tapa Dura 200 hojas',
-                'brand': 'Faber-Castell',
-                'price': 1200.00,
-                'quality': 'intermedio',
-                'stock': 30,
-                'description': 'Cuaderno de calidad intermedia con tapa dura'
-            },
-            {
-                'product_name': 'Cuaderno A4 Premium 300 hojas',
-                'brand': 'Oxford',
-                'price': 2500.00,
-                'quality': 'calidad',
-                'stock': 15,
-                'description': 'Cuaderno premium con papel de alta calidad'
-            }
-        ]
-        suggestions['suggestions'] = filter_by_quality(all_suggestions, quality_preference)
-        
-    elif 'lápiz' in item_lower or 'lapiz' in item_lower:
-        all_suggestions = [
-            {
-                'product_name': 'Lápiz HB N°2 Caja x12',
-                'brand': 'Faber-Castell',
-                'price': 350.00,
-                'quality': 'economico',
-                'stock': 100,
-                'description': 'Lápices escolares básicos'
-            },
-            {
-                'product_name': 'Lápiz HB Ecológico x10',
-                'brand': 'Staedtler',
-                'price': 800.00,
-                'quality': 'intermedio',
-                'stock': 60,
-                'description': 'Lápices ecológicos de calidad media'
-            },
-            {
-                'product_name': 'Lápiz HB Profesional x12',
-                'brand': 'Mitsubishi',
-                'price': 1500.00,
-                'quality': 'calidad',
-                'stock': 25,
-                'description': 'Lápices profesionales de alta calidad'
-            }
-        ]
-        suggestions['suggestions'] = filter_by_quality(all_suggestions, quality_preference)
-        
-    elif 'mochila' in item_lower:
-        all_suggestions = [
-            {
-                'product_name': 'Mochila Escolar Básica',
-                'brand': 'Genérica',
-                'price': 2500.00,
-                'quality': 'economico',
-                'stock': 25,
-                'description': 'Mochila escolar básica con múltiples compartimentos'
-            },
-            {
-                'product_name': 'Mochila Escolar con Ruedas',
-                'brand': 'Samsonite',
-                'price': 8500.00,
-                'quality': 'intermedio',
-                'stock': 10,
-                'description': 'Mochila de calidad media con sistema de ruedas'
-            },
-            {
-                'product_name': 'Mochila Escolar Premium',
-                'brand': 'Nike',
-                'price': 15000.00,
-                'quality': 'calidad',
-                'stock': 8,
-                'description': 'Mochila premium con tecnología avanzada'
-            }
-        ]
-        suggestions['suggestions'] = filter_by_quality(all_suggestions, quality_preference)
-        
-    else:
-        # Sugerencia genérica para ítems no reconocidos
-        all_suggestions = [
-            {
-                'product_name': f'Producto: {item_name}',
-                'brand': 'Genérica',
-                'price': 500.00,
-                'quality': 'economico',
-                'stock': 20,
-                'description': 'Producto sugerido por IA'
-            },
-            {
-                'product_name': f'Producto: {item_name}',
-                'brand': 'Marca Media',
-                'price': 1200.00,
-                'quality': 'intermedio',
-                'stock': 15,
-                'description': 'Producto de calidad media'
-            },
-            {
-                'product_name': f'Producto: {item_name}',
-                'brand': 'Marca Premium',
-                'price': 2500.00,
-                'quality': 'calidad',
-                'stock': 10,
-                'description': 'Producto de alta calidad'
-            }
-        ]
-        suggestions['suggestions'] = filter_by_quality(all_suggestions, quality_preference)
-        suggestions['confidence_score'] = 0.60
-    
-    # Si no hay sugerencias después del filtro, usar la primera disponible
-    if not suggestions['suggestions']:
-        suggestions['suggestions'] = [all_suggestions[0]] if 'all_suggestions' in locals() else [{
-            'product_name': f'Producto: {item_name}',
-            'brand': 'Genérica',
-            'price': 500.00,
-            'quality': 'economico',
-            'stock': 20,
-            'description': 'Producto sugerido por IA'
-        }]
-    
-    suggestions['primary_suggestion'] = suggestions['suggestions'][0]
-    
-    return suggestions
 
 
 def _get_or_create_product(product_data):
     """
-    Función auxiliar para obtener o crear un producto basado en los datos de la IA.
-    En una implementación real, esto se conectaría con el catálogo existente.
+    Función auxiliar para obtener o crear un objeto Product a partir de los datos de la sugerencia de IA.
     """
-    # Buscar si ya existe un producto similar
-    existing_product = Product.objects.filter(
-        name__icontains=product_data['product_name'][:50]
-    ).first()
-    
-    if existing_product:
-        return existing_product
-    
-    # Crear un nuevo producto
-    return Product.objects.create(
-        name=product_data['product_name'],
-        description=product_data['description'],
-        price=Decimal(str(product_data['price'])),
-        brand=product_data['brand'],
-        quality_category=product_data['quality'],
-        stock=product_data['stock']
+    product_name = product_data.get('producto')
+    brand = product_data.get('marca', 'Genérica')
+    price = Decimal(str(product_data.get('precio', 0)))
+    quality_category_value = product_data.get('calidad', 'Económico') # Corregido de 'quality' a 'quality_category_value'
+    stock = product_data.get('stock', 0)
+
+    product, created = Product.objects.get_or_create(
+        name=product_name,
+        brand=brand,
+        defaults={'price': price, 'quality_category': quality_category_value, 'stock': stock} # Corregido a 'quality_category'
     )
+    if not created:
+        # Si el producto ya existe, actualizar sus atributos si es necesario
+        updated = False
+        if product.price != price:
+            product.price = price
+            updated = True
+        if product.quality_category != quality_category_value: # Corregido a 'product.quality_category'
+            product.quality_category = quality_category_value
+            updated = True
+        if product.stock != stock:
+            product.stock = stock
+            updated = True
+        if updated:
+            product.save()
+    return product
+
+def normalizar_sugerencias(sugerencias):
+    normalizadas = []
+    for s in sugerencias:
+        normalizadas.append({
+            "product_name": s.get("producto", ""),
+            "brand": s.get("marca", ""),
+            "price": s.get("precio", 0),
+            "quality": s.get("calidad", ""),
+            "stock": s.get("stock", 0),
+            "description": s.get("descripcion", ""),
+        })
+    return normalizadas
 
 @csrf_exempt # Solo para desarrollo, en producción usar token CSRF
 def edit_shopping_list_item(request, list_id, item_id):
     """
-    Vista para editar un ítem específico de la lista de compras.
-    Recibe datos por POST y actualiza el item_name_raw y quantity_requested.
+    Edita un item de una lista de compras. Permite actualizar la cantidad y el producto sugerido.
     """
     if request.method == 'POST':
+        if request.user.is_authenticated:
+            shopping_list = get_object_or_404(ShoppingList, id=list_id, user=request.user)
+        else:
+            shopping_list = get_object_or_404(ShoppingList, id=list_id)
+            if shopping_list.user is not None:
+                return JsonResponse({'status': 'error', 'message': 'No tienes permiso para modificar esta lista.'}, status=403)
+
+        shopping_item = get_object_or_404(ShoppingListItem, id=item_id, shopping_list=shopping_list)
+
         try:
-            # Obtener el ítem de la lista de compras
-            shopping_item = get_object_or_404(ShoppingListItem, id=item_id, shopping_list__id=list_id)
-            
             # Obtener los datos del cuerpo de la solicitud JSON
             data = json.loads(request.body)
-            new_item_name = data.get('item_name', '').strip()
-            new_quantity = data.get('quantity', 0)
-            
-            if not new_item_name or not new_quantity:
-                return JsonResponse({'success': False, 'message': 'Nombre del ítem y cantidad son requeridos.'}, status=400)
-            
-            # Actualizar el ítem
-            shopping_item.item_name_raw = new_item_name
+            new_quantity = int(data.get('quantity_requested', shopping_item.quantity_requested))
+            selected_product_id = data.get('suggested_product_id')
+
             shopping_item.quantity_requested = new_quantity
+
+            # Actualizar el producto sugerido si se proporciona uno
+            if selected_product_id:
+                product = get_object_or_404(Product, id=selected_product_id)
+                shopping_item.suggested_product = product
+            else:
+                shopping_item.suggested_product = None # Si no se selecciona, se limpia
+
             shopping_item.save()
             
-            messages.success(request, 'Ítem actualizado correctamente.')
-            return JsonResponse({'success': True, 'message': 'Ítem actualizado correctamente.'})
-            
+            # Recalcular el costo total de la lista
+            shopping_list.refresh_from_db() # Asegura que la lista esté actualizada con los cambios en los ítems
+            total_estimated_cost = shopping_list.get_total_estimated_cost()
+
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Ítem de la lista actualizado correctamente.',
+                'item_total_cost': shopping_item.get_total_cost_item(),
+                'list_total_cost': total_estimated_cost,
+                'total_items': shopping_list.get_total_items()
+            })
         except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Solicitud JSON inválida.'}, status=400)
-        except ShoppingListItem.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Ítem de lista no encontrado.'}, status=404)
+            return JsonResponse({'status': 'error', 'message': 'Formato de solicitud JSON inválido.'}, status=400)
+        except ValueError:
+            return JsonResponse({'status': 'error', 'message': 'Cantidad inválida.'}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'message': f'Error al actualizar el ítem: {e}'}, status=500)
-            
-    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+            return JsonResponse({'status': 'error', 'message': f'Error al editar el ítem: {e}'}, status=500)
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
 
 @csrf_exempt
 def delete_shopping_list_item(request, list_id, item_id):
     """
-    Vista para eliminar un ítem específico de la lista de compras.
+    Elimina un item de una lista de compras.
     """
     if request.method == 'POST':
-        try:
-            shopping_item = get_object_or_404(ShoppingListItem, id=item_id, shopping_list__id=list_id)
-            item_name = shopping_item.item_name_raw # Guardar nombre para el mensaje
-            shopping_item.delete()
-            messages.success(request, f'Ítem "{item_name}" eliminado correctamente.')
-            return JsonResponse({'success': True, 'message': 'Ítem eliminado correctamente.'})
-        except ShoppingListItem.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Ítem de lista no encontrado.'}, status=404)
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': f'Error al eliminar el ítem: {e}'}, status=500)
-    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+        if request.user.is_authenticated:
+            shopping_list = get_object_or_404(ShoppingList, id=list_id, user=request.user)
+        else:
+            shopping_list = get_object_or_404(ShoppingList, id=list_id)
+            if shopping_list.user is not None:
+                return JsonResponse({'status': 'error', 'message': 'No tienes permiso para modificar esta lista.'}, status=403)
+        
+        shopping_item = get_object_or_404(ShoppingListItem, id=item_id, shopping_list=shopping_list)
+        item_name = shopping_item.item_name_raw
+        shopping_item.delete()
+
+        # Recalcular el costo total de la lista y la cantidad de ítems
+        shopping_list.refresh_from_db()
+        total_estimated_cost = shopping_list.get_total_estimated_cost()
+        total_items = shopping_list.get_total_items()
+        
+        messages.success(request, f'Ítem "{item_name}" eliminado correctamente de la lista.')
+        return JsonResponse({
+            'status': 'success', 
+            'message': f'Ítem "{item_name}" eliminado correctamente.',
+            'list_total_cost': total_estimated_cost,
+            'total_items': total_items
+        })
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
 
 @csrf_exempt
 def add_shopping_list_item(request, list_id):
     """
-    Vista para agregar un nuevo ítem a una lista de compras existente.
+    Agrega un nuevo ítem a una lista de compras existente.
     """
     if request.method == 'POST':
-        try:
+        if request.user.is_authenticated:
+            shopping_list = get_object_or_404(ShoppingList, id=list_id, user=request.user)
+        else:
             shopping_list = get_object_or_404(ShoppingList, id=list_id)
+            if shopping_list.user is not None:
+                return JsonResponse({'status': 'error', 'message': 'No tienes permiso para modificar esta lista.'}, status=403)
+
+        try:
             data = json.loads(request.body)
             item_name = data.get('item_name', '').strip()
-            quantity = data.get('quantity', 0)
-            
-            if not item_name or not quantity:
-                return JsonResponse({'success': False, 'message': 'Nombre del ítem y cantidad son requeridos.'}, status=400)
+            quantity = int(data.get('quantity', 1))
+
+            if not item_name:
+                return JsonResponse({'status': 'error', 'message': 'El nombre del ítem no puede estar vacío.'}, status=400)
+            if quantity <= 0:
+                return JsonResponse({'status': 'error', 'message': 'La cantidad debe ser un número positivo.'}, status=400)
             
             shopping_item = ShoppingListItem(
                 shopping_list=shopping_list,
                 item_name_raw=item_name,
                 quantity_requested=quantity
             )
+
+            # Obtener sugerencias del agente de IA real para el nuevo ítem
+            ai_response = ai_agent.process_query(f"{item_name} (cantidad: {quantity}, calidad: {shopping_list.quality_preference})")
             
-            # Simular sugerencias de IA para el nuevo ítem
-            ai_suggestions = _simulate_ai_suggestions(item_name, quantity)
-            shopping_item.set_ai_suggestions(ai_suggestions)
+            ai_suggestions_data = {"suggestions": [], "primary_suggestion": None}
+
+            if not ai_response["error"]:
+                suggestions_list = ai_response["productos"]
+                normalizadas = normalizar_sugerencias(suggestions_list)
+                if normalizadas:
+                    ai_suggestions_data["primary_suggestion"] = normalizadas[0]
+                ai_suggestions_data["suggestions"] = normalizadas
+
+            shopping_item.set_ai_suggestions(ai_suggestions_data)
             
-            if ai_suggestions.get('primary_suggestion'):
-                primary_product = _get_or_create_product(ai_suggestions['primary_suggestion'])
+            if ai_suggestions_data.get('primary_suggestion'):
+                primary_product = _get_or_create_product(ai_suggestions_data['primary_suggestion'])
                 shopping_item.suggested_product = primary_product
             
-            # Guardar el item una sola vez después de asignar todo
             shopping_item.save()
-                
-            messages.success(request, f'Ítem "{item_name}" agregado exitosamente.')
-            return JsonResponse({'success': True, 'message': 'Ítem agregado correctamente.'})
-            
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Solicitud JSON inválida.'}, status=400)
-        except ShoppingList.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Lista de compras no encontrada.'}, status=404)
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': f'Error al agregar el ítem: {e}'}, status=500)
-            
-    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
 
-# --- Vistas para CRUD de Productos ---
+            # Recalcular el costo total de la lista
+            shopping_list.refresh_from_db()
+            total_estimated_cost = shopping_list.get_total_estimated_cost()
+            total_items = shopping_list.get_total_items()
+
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Ítem agregado correctamente.',
+                'item_html': render(request, 'asistente_compras/partials/shopping_list_item.html', {'item': shopping_item}).content.decode('utf-8'),
+                'list_total_cost': total_estimated_cost,
+                'total_items': total_items
+            })
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Formato de solicitud JSON inválido.'}, status=400)
+        except ValueError:
+            return JsonResponse({'status': 'error', 'message': 'Cantidad inválida.'}, status=400)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Error al agregar el ítem: {e}'}, status=500)
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
 
 def product_list(request):
     """
-    Muestra una lista de todos los productos en el inventario.
+    Vista para mostrar la lista de todos los productos en el inventario.
     """
     products = Product.objects.all().order_by('name')
     context = {
@@ -546,348 +504,212 @@ def product_list(request):
 @csrf_exempt
 def product_create(request):
     """
-    Crea un nuevo producto en el inventario.
+    Crea un nuevo producto.
     """
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            name = data.get('name', '').strip()
-            description = data.get('description', '').strip()
-            price = Decimal(str(data.get('price', 0)))
-            brand = data.get('brand', '').strip()
-            quality_category = data.get('quality_category', '').strip()
-            stock = int(data.get('stock', 0))
-            
-            if not all([name, description, price, brand, quality_category]):
-                return JsonResponse({'success': False, 'message': 'Todos los campos son requeridos.'}, status=400)
+            name = data.get('name').strip()
+            brand = data.get('brand', 'Genérica').strip()
+            price = Decimal(data.get('price'))
+            quality = data.get('quality', 'Económico').strip()
+            stock = int(data.get('stock'))
 
-            if price < 0 or stock < 0:
-                 return JsonResponse({'success': False, 'message': 'Precio y stock no pueden ser negativos.'}, status=400)
+            if not name or price is None or stock is None:
+                return JsonResponse({'status': 'error', 'message': 'Nombre, precio y stock son campos requeridos.'}, status=400)
+            if price <= 0:
+                return JsonResponse({'status': 'error', 'message': 'El precio debe ser un número positivo.'}, status=400)
+            if stock < 0:
+                return JsonResponse({'status': 'error', 'message': 'El stock no puede ser negativo.'}, status=400)
 
             product = Product.objects.create(
                 name=name,
-                description=description,
-                price=price,
                 brand=brand,
-                quality_category=quality_category,
+                price=price,
+                quality=quality,
                 stock=stock
             )
-            messages.success(request, f'Producto "{name}" creado exitosamente.')
-            return JsonResponse({'success': True, 'message': 'Producto creado correctamente.', 'product_id': product.id})
+            return JsonResponse({'status': 'success', 'message': 'Producto creado exitosamente.', 'product_id': product.id})
         except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Solicitud JSON inválida.'}, status=400)
+            return JsonResponse({'status': 'error', 'message': 'Formato JSON inválido.'}, status=400)
+        except ValueError as e:
+            return JsonResponse({'status': 'error', 'message': f'Error de validación: {e}'}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'message': f'Error al crear el producto: {e}'}, status=500)
-    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+            return JsonResponse({'status': 'error', 'message': f'Error al crear producto: {e}'}, status=500)
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
 
 @csrf_exempt
 def product_update(request, product_id):
     """
-    Actualiza un producto existente en el inventario.
+    Actualiza un producto existente.
     """
     if request.method == 'POST':
+        product = get_object_or_404(Product, id=product_id)
         try:
-            product = get_object_or_404(Product, id=product_id)
             data = json.loads(request.body)
-            
             product.name = data.get('name', product.name).strip()
-            product.description = data.get('description', product.description).strip()
-            product.price = Decimal(str(data.get('price', product.price)))
             product.brand = data.get('brand', product.brand).strip()
-            product.quality_category = data.get('quality_category', product.quality_category).strip()
+            product.price = Decimal(data.get('price', product.price))
+            product.quality = data.get('quality', product.quality).strip()
             product.stock = int(data.get('stock', product.stock))
 
-            if product.price < 0 or product.stock < 0:
-                 return JsonResponse({'success': False, 'message': 'Precio y stock no pueden ser negativos.'}, status=400)
+            if product.price <= 0:
+                return JsonResponse({'status': 'error', 'message': 'El precio debe ser un número positivo.'}, status=400)
+            if product.stock < 0:
+                return JsonResponse({'status': 'error', 'message': 'El stock no puede ser negativo.'}, status=400)
 
             product.save()
-            messages.success(request, f'Producto "{product.name}" actualizado exitosamente.')
-            return JsonResponse({'success': True, 'message': 'Producto actualizado correctamente.'})
+            return JsonResponse({'status': 'success', 'message': 'Producto actualizado exitosamente.'})
         except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Solicitud JSON inválida.'}, status=400)
-        except Product.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Producto no encontrado.'}, status=404)
+            return JsonResponse({'status': 'error', 'message': 'Formato JSON inválido.'}, status=400)
+        except ValueError as e:
+            return JsonResponse({'status': 'error', 'message': f'Error de validación: {e}'}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'message': f'Error al actualizar el producto: {e}'}, status=500)
-    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+            return JsonResponse({'status': 'error', 'message': f'Error al actualizar producto: {e}'}, status=500)
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
 
 @csrf_exempt
 def product_delete(request, product_id):
     """
-    Elimina un producto del inventario.
+    Elimina un producto.
     """
     if request.method == 'POST':
-        try:
-            product = get_object_or_404(Product, id=product_id)
-            product_name = product.name # Guardar nombre para el mensaje
-            product.delete()
-            messages.success(request, f'Producto "{product_name}" eliminado exitosamente.')
-            return JsonResponse({'success': True, 'message': 'Producto eliminado correctamente.'})
-        except Product.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Producto no encontrado.'}, status=404)
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': f'Error al eliminar el producto: {e}'}, status=500)
-    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+        product = get_object_or_404(Product, id=product_id)
+        product_name = product.name
+        product.delete()
+        return JsonResponse({'status': 'success', 'message': f'Producto "{product_name}" eliminado exitosamente.'})
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
 
 @csrf_exempt
 def search_products(request):
     """
-    Vista para buscar productos en el inventario.
-    Retorna productos que coincidan con el término de búsqueda.
+    Busca productos por nombre o marca.
     """
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            search_term = data.get('search_term', '').strip()
-            
-            if not search_term:
-                return JsonResponse({'success': False, 'message': 'Término de búsqueda requerido.'}, status=400)
-            
-            # Buscar productos que coincidan con el término de búsqueda
-            products = Product.objects.filter(
-                name__icontains=search_term
-            ).order_by('name')[:10]  # Limitar a 10 resultados
-            
-            # Convertir productos a formato JSON
-            products_data = []
-            for product in products:
-                products_data.append({
-                    'id': product.id,
-                    'name': product.name,
-                    'description': product.description,
-                    'price': float(product.price),
-                    'brand': product.brand,
-                    'quality_category': product.quality_category,
-                    'stock': product.stock
-                })
-            
-            return JsonResponse({
-                'success': True, 
-                'products': products_data,
-                'count': len(products_data)
-            })
-            
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Solicitud JSON inválida.'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': f'Error al buscar productos: {e}'}, status=500)
-    
-    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+    query = request.GET.get('query', '').strip()
+    if query:
+        products = Product.objects.filter(name__icontains=query) | Product.objects.filter(brand__icontains=query)
+        products = products.order_by('name')
+    else:
+        products = Product.objects.all().order_by('name')
+
+    # Renderizar solo el fragmento de la tabla de productos
+    context = {'products': products}
+    return render(request, 'asistente_compras/partials/product_table_rows.html', context)
+
 
 def export_list_to_pdf(request, list_id):
     """
-    Vista para exportar una lista de compras a PDF como comprobante de compra.
+    Exporta una lista de compras a un archivo PDF.
     """
-    # Obtener la lista de compras
-    if request.user.is_authenticated:
-        shopping_list = get_object_or_404(ShoppingList, id=list_id, user=request.user)
-    else:
-        shopping_list = get_object_or_404(ShoppingList, id=list_id)
-    
-    # Crear el buffer para el PDF
+    shopping_list = get_object_or_404(ShoppingList, id=list_id)
+
+    # Crear un buffer para el PDF
     buffer = BytesIO()
-    
-    # Crear el documento PDF
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    story = []
-    
-    # Obtener estilos
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=inch, leftMargin=inch,
+                            topMargin=inch, bottomMargin=inch)
+
     styles = getSampleStyleSheet()
     
-    # Crear estilos personalizados
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=18,
-        spaceAfter=30,
-        alignment=TA_CENTER,
-        textColor=colors.darkblue
-    )
-    
-    subtitle_style = ParagraphStyle(
-        'CustomSubtitle',
-        parent=styles['Heading2'],
-        fontSize=14,
-        spaceAfter=20,
-        alignment=TA_LEFT,
-        textColor=colors.darkgreen
-    )
-    
-    normal_style = ParagraphStyle(
-        'CustomNormal',
-        parent=styles['Normal'],
-        fontSize=10,
-        spaceAfter=12,
-        allowMarkup=1  # Aseguramos que el marcado HTML esté habilitado
-    )
+    # Custom styles
+    styles.add(ParagraphStyle(name='CenteredTitle',
+                              parent=styles['h1'],
+                              alignment=TA_CENTER,
+                              spaceAfter=14))
+    styles.add(ParagraphStyle(name='LeftHeading',
+                              parent=styles['h2'],
+                              alignment=TA_LEFT,
+                              spaceAfter=8))
+    styles.add(ParagraphStyle(name='RightParagraph',
+                              parent=styles['Normal'],
+                              alignment=TA_RIGHT))
+    styles.add(ParagraphStyle(name='NormalLeft',
+                              parent=styles['Normal'],
+                              alignment=TA_LEFT))
 
-    bold_normal_style = ParagraphStyle(
-        'CustomNormalBold',
-        parent=normal_style, # Hereda propiedades de normal_style
-        fontName='Helvetica-Bold' # Establece explícitamente la fuente negrita
-    )
-    
-    # Título principal
-    title = Paragraph("COMPROBANTE DE COMPRA", title_style)
-    story.append(title)
-    story.append(Spacer(1, 20))
-    
+    elements = []
+
+    # Logo (asegúrate de que la ruta sea correcta y el archivo exista)
+    # logo_path = os.path.join(settings.STATIC_ROOT, 'img', 'logo.png') # Usar STATIC_ROOT si está desplegado
+    # Para desarrollo, podrías usar una ruta relativa si el staticfiles_dirs está configurado
+    # o simplemente omitirlo si no es crítico.
+    # Por simplicidad, si no hay un logo específico, se puede omitir esta parte.
+    # if os.path.exists(logo_path):
+    #     logo = Image(logo_path, width=1.5*inch, height=0.5*inch)
+    #     elements.append(logo)
+    #     elements.append(Spacer(1, 0.2*inch))
+
+
+    # Título del documento
+    elements.append(Paragraph("LISTA DE COMPRAS - LibrerIA", styles['CenteredTitle']))
+    elements.append(Spacer(1, 0.2 * inch))
+
     # Información de la lista
-    list_info = [
-        [Paragraph("Nombre de la Lista:", bold_normal_style), shopping_list.name],
-        [Paragraph("Fecha de Creación:", bold_normal_style), shopping_list.created_at.strftime("%d/%m/%Y %H:%M")],
-        [Paragraph("Total de Ítems:", bold_normal_style), str(shopping_list.get_total_items())],
-        [Paragraph("Preferencia de Calidad:", bold_normal_style), shopping_list.get_quality_preference_display()],
-    ]
-    
+    elements.append(Paragraph(f"<b>Nombre de la Lista:</b> {shopping_list.name}", styles['NormalLeft']))
+    elements.append(Paragraph(f"<b>Creada:</b> {shopping_list.created_at.strftime('%d/%m/%Y %H:%M')}", styles['NormalLeft']))
+    elements.append(Paragraph(f"<b>Última Actualización:</b> {shopping_list.updated_at.strftime('%d/%m/%Y %H:%M')}", styles['NormalLeft']))
     if shopping_list.user:
-        list_info.append([Paragraph("Cliente:", bold_normal_style), shopping_list.user.get_full_name() or shopping_list.user.username])
-    
-    list_table = Table(list_info, colWidths=[2*inch, 4*inch])
-    list_table.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-    ]))
-    
-    story.append(list_table)
-    story.append(Spacer(1, 20))
-    
-    # Título de la tabla de productos
-    subtitle = Paragraph("DETALLE DE PRODUCTOS", subtitle_style)
-    story.append(subtitle)
-    
-    # Obtener los ítems de la lista
-    items = shopping_list.shoppinglistitem_set.all()
-    
-    if items:
-        # Encabezados de la tabla
-        headers = [
-            "N°", "Producto", "Marca", "Calidad", "Cantidad", "Precio Unit.", "Subtotal"
-        ]
-        
-        # Datos de la tabla
-        table_data = [headers]
-        total_general = 0
-        
-        for i, item in enumerate(items, 1):
-            if item.suggested_product:
-                product = item.suggested_product
-                subtotal = float(product.price) * item.quantity_requested
-                total_general += subtotal
-                
-                row = [
-                    str(i),
-                    product.name,
-                    product.brand,
-                    product.get_quality_category_display(),
-                    str(item.quantity_requested),
-                    f"${int(product.price):,}",
-                    f"${int(subtotal):,}"
-                ]
-            else:
-                row = [
-                    str(i),
-                    item.item_name_raw,
-                    "N/A",
-                    "N/A",
-                    str(item.quantity_requested),
-                    "N/A",
-                    "N/A"
-                ]
-            
-            table_data.append(row)
-        
-        # Agregar fila de total
-        table_data.append([
-            "", "", "", "", Paragraph("TOTAL:", bold_normal_style), "", Paragraph(f"${int(total_general):,}", bold_normal_style)
-        ])
-        
-        # Crear la tabla
-        table = Table(table_data, colWidths=[0.5*inch, 2*inch, 1*inch, 1*inch, 0.8*inch, 1*inch, 1*inch])
-        
-        # Estilo de la tabla
-        table.setStyle(TableStyle([
-            # Encabezados
-            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            
-            # Datos
-            ('ALIGN', (0, 1), (-1, -2), 'LEFT'),
-            ('ALIGN', (4, 1), (6, -2), 'CENTER'),  # Cantidad, precio y subtotal centrados
-            ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -2), 9),
-            
-            # Fila de total
-            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
-            ('FONTSIZE', (0, -1), (-1, -1), 10),
-            ('ALIGN', (0, -1), (-1, -1), 'CENTER'),
-            
-            # Bordes
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('ROWBACKGROUNDS', (1, 1), (-1, -2), [colors.white, colors.lightgrey]),
-        ]))
-        
-        story.append(table)
-        story.append(Spacer(1, 20))
-        
-        # Información adicional
-        if total_general > 0:
-            info_text = f"""
-            <br/><b>Resumen de la Compra:</b><br/>
-            • Total de productos: {len(items)}<br/>
-            • Monto total: ${int(total_general):,}<br/>
-            • Fecha de emisión: {datetime.now().strftime("%d/%m/%Y %H:%M")}<br/>
-            • Este documento sirve como comprobante de compra para la lista "{shopping_list.name}"
-            """
-        else:
-            info_text = f"""
-            <br/><b>Nota:</b><br/>
-            • Esta lista contiene {len(items)} productos<br/>
-            • Los precios se calcularán cuando se seleccionen productos específicos<br/>
-            • Fecha de emisión: {datetime.now().strftime("%d/%m/%Y %H:%M")}
-            """
-        
-        # Ensure that normal_style can handle markup.
-        normal_style.allowBreakups = 1
-        normal_style.wordWrap = 'CJK'
+        elements.append(Paragraph(f"<b>Usuario:</b> {shopping_list.user.username}", styles['NormalLeft']))
+    elements.append(Spacer(1, 0.2 * inch))
 
-        info_paragraph = Paragraph(info_text, normal_style)
-        story.append(info_paragraph)
+    # Tabla de ítems
+    data = [["Cantidad", "Producto Solicitado", "Producto Sugerido", "Marca", "Precio Unitario", "Subtotal"]]
+    total_cost = Decimal('0.00')
+
+    for item in shopping_list.shoppinglistitem_set.all():
+        product_name = "N/A"
+        brand = "N/A"
+        price = Decimal('0.00')
+        subtotal = Decimal('0.00')
+
+        if item.suggested_product:
+            product_name = item.suggested_product.name
+            brand = item.suggested_product.brand
+            price = item.suggested_product.price
+            subtotal = item.suggested_product.price * item.quantity_requested
         
-    else:
-        # Lista vacía
-        empty_text = Paragraph("Esta lista no contiene productos.", normal_style)
-        story.append(empty_text)
+        data.append([
+            str(item.quantity_requested),
+            item.item_name_raw,
+            product_name,
+            brand,
+            f"${price:,.2f}",
+            f"${subtotal:,.2f}"
+        ])
+        total_cost += subtotal
     
-    # Pie de página
-    story.append(Spacer(1, 30))
-    footer_text = """
-    <b>Librería IA - Asistente de Compras</b><br/>
-    Documento generado automáticamente por el sistema de IA<br/>
-    Para consultas, contactar al administrador del sistema
-    """
-    footer = Paragraph(footer_text, normal_style)
-    story.append(footer)
+    # Fila total
+    data.append(["", "", "", "", "<b>Costo Total Estimado:</b>", f"<b>${total_cost:,.2f}</b>"])
+
+    table = Table(data, colWidths=[1*inch, 2*inch, 1.5*inch, 1*inch, 1*inch, 1*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ADD8E6')), # Azul claro para encabezado
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -2), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTNAME', (4, -1), (5, -1), 'Helvetica-Bold'), # Total en negrita
+        ('ALIGN', (4, -1), (5, -1), 'RIGHT'), # Total alineado a la derecha
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 0.5 * inch))
+
+    elements.append(Paragraph("Gracias por usar LibrerIA para tus compras.", styles['CenteredTitle']))
+
+    doc.build(elements)
     
-    # Construir el PDF
-    doc.build(story)
-    
-    # Obtener el valor del buffer
+    # Obtener el valor del buffer y crear la respuesta HTTP
     pdf = buffer.getvalue()
     buffer.close()
-    
-    # Crear la respuesta HTTP
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="comprobante_{shopping_list.name}_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf"'
-    response.write(pdf)
-    
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="lista_compras_{shopping_list.name.replace(" ", "_")}.pdf"'
     return response
 
 def list_detail_ia(request):
@@ -928,3 +750,26 @@ def list_detail_ia(request):
         'total_items': sum(p.get('cantidad_sugerida', 1) for p in productos)
     }
     return render(request, 'asistente_compras/list_detail.html', context)
+
+def correos_recibidos(request):
+    """
+    Vista para mostrar todos los correos recibidos y permitir actualizar la lista.
+    """
+    if request.method == 'POST':
+        # Petición AJAX para actualizar correos
+        correos = leer_correos_gmail()
+        return JsonResponse({'correos': correos})
+    else:
+        correos = leer_correos_gmail()
+        return render(request, 'asistente_compras/correos_recibidos.html', {'correos': correos})
+
+@csrf_exempt
+def eliminar_correo(request):
+    if request.method == 'POST':
+        correo_id = request.POST.get('id')
+        if correo_id:
+            marcar_correo_eliminado(correo_id)
+            return JsonResponse({'success': True})
+        else:
+            return HttpResponseBadRequest('Falta el id del correo')
+    return HttpResponseBadRequest('Método no permitido')
